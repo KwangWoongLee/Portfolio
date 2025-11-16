@@ -1,0 +1,43 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="include\App.h" />
+    <ClInclude Include="include\BaseSessionManager.h" />
+    <ClInclude Include="include\CircularBuffer.h" />
+    <ClInclude Include="include\ClientEngine.h" />
+    <ClInclude Include="include\Connector.h" />
+    <ClInclude Include="include\Engine.h" />
+    <ClInclude Include="include\IOCP.h" />
+    <ClInclude Include="include\IOCPSession.h" />
+    <ClInclude Include="include\IOCPSessionManager.h" />
+    <ClInclude Include="include\IOEvent.h" />
+    <ClInclude Include="include\KeySerialTaskExecutor.h" />
+    <ClInclude Include="include\Listener.h" />
+    <ClInclude Include="include\LockQueue.h" />
+    <ClInclude Include="include\ObjectPool.h" />
+    <ClInclude Include="include\PacketSendTaskBase.h" />
+    <ClInclude Include="include\RAII.h" />
+    <ClInclude Include="include\ServerEngine.h" />
+    <ClInclude Include="include\Singleton.h" />
+    <ClInclude Include="include\SocketUtil.h" />
+    <ClInclude Include="include\StreamHeader.h" />
+    <ClInclude Include="include\StreamReader.h" />
+    <ClInclude Include="include\StreamWriter.h" />
+    <ClInclude Include="include\Task.h" />
+    <ClInclude Include="include\TaskDispatcher.h" />
+    <ClInclude Include="src\CorePch.h" />
+    <ClInclude Include="src\stdafx.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\ClientEngine.cpp" />
+    <ClCompile Include="src\CorePch.cpp" />
+    <ClCompile Include="src\Engine.cpp" />
+    <ClCompile Include="src\IOCP.cpp" />
+    <ClCompile Include="src\IOCPSession.cpp" />
+    <ClCompile Include="src\IOCPSessionManager.cpp" />
+    <ClCompile Include="src\Listener.cpp" />
+    <ClCompile Include="src\ServerEngine.cpp" />
+    <ClCompile Include="src\SocketUtil.cpp" />
+    <ClCompile Include="src\stdafx.cpp" />
+  </ItemGroup>
+</Project>
