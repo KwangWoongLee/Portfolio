@@ -1,34 +1,14 @@
 #pragma once
-#include "stdafx.h"
+#include "CorePch.h"
 
-template <typename T_SESSION>
+#include "BaseSession.h"
+
 class BaseSessionManager
 {
 public:
-    using SessionId = int64_t;
-
     virtual ~BaseSessionManager() = default;
 
-    void Add(SessionId const id, std::shared_ptr<T_SESSION> const& session)
-    {
-        std::scoped_lock lock(_mutex);
-        _sessions.emplace(id, session);
-    }
-
-    void Remove(SessionId const id)
-    {
-        std::scoped_lock lock(_mutex);
-        _sessions.erase(id);
-    }
-
-    std::shared_ptr<T_SESSION> Find(SessionId const id) const
-    {
-        std::scoped_lock lock(_mutex);
-        auto it = _sessions.find(id);
-        return (it != _sessions.end()) ? it->second : nullptr;
-    }
-
-    void ForEach(std::function<void(std::shared_ptr<T_SESSION> const&)> const& fn) const
+    void ForEach(std::function<void(std::shared_ptr<BaseSession> const&)> const& fn) const
     {
         std::scoped_lock lock(_mutex);
         for (auto const& [id, session] : _sessions)
@@ -38,6 +18,39 @@ public:
     }
 
 protected:
+    bool Add(std::shared_ptr<BaseSession> const& session)
+    {
+        std::scoped_lock lock(_mutex);
+        auto const [_, isSuccess] = _sessions.try_emplace(_nextSessionId, session);
+        if (not isSuccess)
+        {
+            return false;
+        }
+
+        session->SetSessionId(_nextSessionId);
+
+        ++_nextSessionId;
+        return true;
+    }
+
+    std::shared_ptr<BaseSession> Remove(SessionId const id)
+    {
+        std::scoped_lock lock(_mutex);
+        auto const iter = _sessions.find(id);
+        if (iter == _sessions.end())
+        {
+            return nullptr;
+		}
+
+		std::shared_ptr<BaseSession> ret = iter->second;
+        _sessions.erase(iter);
+
+        return ret;
+    }
+
+private:
     mutable std::shared_mutex _mutex;
-    std::unordered_map<SessionId, std::shared_ptr<T_SESSION>> _sessions;
+
+    SessionId _nextSessionId{ 1 };
+    std::unordered_map<SessionId, std::shared_ptr<BaseSession>> _sessions;
 };

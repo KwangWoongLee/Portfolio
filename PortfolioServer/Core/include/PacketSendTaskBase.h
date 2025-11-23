@@ -1,5 +1,5 @@
 #pragma once
-#include "stdafx.h"
+#include "CorePch.h"
 
 template<typename T_SESSION, typename T_SESSION_MANAGER>
 class PacketSendTask
@@ -16,7 +16,7 @@ public:
 
     void Execute() override
     {
-	    if (auto const session = SessionManagerT::Singleton::Instance().Find(_key))
+	    if (auto const session = SessionManagerT::Singleton::GetInstance().Find(_key))
         {
             session->SendPacket(_pktId, _pkt);
         }

@@ -1,5 +1,5 @@
 #pragma once
-#include "stdafx.h"
+#include "CorePch.h"
 
 template <typename T>
 class Singleton final
@@ -8,15 +8,15 @@ public:
 	Singleton() = default;
 	~Singleton() = default;
 
-	static T& Instance()
+	static T& GetInstance()
 	{
 		static T instance;
 
 		return instance;
 	}
 
-	static T const& ConstInstance()
+	static T const& GetConstInstance()
 	{
-		return Instance();
+		return GetInstance();
 	}
 };

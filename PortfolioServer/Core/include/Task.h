@@ -2,13 +2,13 @@
 
 enum class ETaskType : uint8_t
 {
-    NONE = 0,
-    BASIC,
+    None = 0,
+    Basic,
     DB,
-    MAX
+    Max
 };
 
-auto constexpr TaskTypeMax = static_cast<size_t>(ETaskType::MAX);
+auto constexpr TASK_TYPE_MAX = static_cast<size_t>(ETaskType::Max);
 
 class ITask
 {

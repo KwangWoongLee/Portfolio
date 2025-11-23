@@ -1,8 +1,7 @@
 #pragma once
-
-#include "stdafx.h"
-
+#include "CorePch.h"
 #include "KeySerialTaskExecutor.h"
+
 #include "Task.h"
 
 class TaskDispatcher final
