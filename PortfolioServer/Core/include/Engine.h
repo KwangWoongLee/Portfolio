@@ -1,36 +1,18 @@
 #pragma once
-
-using SessionFactory = std::function<SessionRef()>;
+#include "IOCP.h"
 
 class Engine
 {
+	class IIOCPObject;
+
 public:
+	explicit Engine(std::shared_ptr<IOCP> const& iocp);
+	virtual ~Engine() = default;
 
-
-public:
-	Engine(IOCPRef iocp, uint16_t maxSessionCount, SessionFactory sessionFactory);
-	virtual ~Engine();
-
-	virtual bool Init();
-	virtual void Run(uint32_t timeout = INFINITE);
+	virtual void Run(uint32_t const timeout = INFINITE);
 	virtual void Stop();
 
-	SessionRef CreateSession();
-	void		DisConnectSession(SessionRef session);
-	bool RegistForCompletionPort(IOCPObjectRef iocpObject);
-
-public:
-	uint16_t GetMaxSessionCount() const { return mMaxSessionCount; }
-
-
 protected:
-	USE_LOCK;
-
-	IOCPRef					mIOCP = nullptr;
-	uint16_t					mMaxSessionCount = 0;
-	SessionFactory			mSessionFactory;
-	std::vector<SessionRef>	mSessions;
+	////USE_LOCK;
+	std::shared_ptr<IOCP> const _iocp;
 };
-
-
-

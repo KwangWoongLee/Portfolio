@@ -1,5 +1,5 @@
 #pragma once
-#include "stdafx.h"
+#include "CorePch.h"
 
 class CircularBuffer final
 {

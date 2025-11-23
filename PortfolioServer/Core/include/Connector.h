@@ -1,6 +1,6 @@
 #pragma once
 
-#include "stdafx.h"
+#include "CorePch.h"
 #include "SocketUtil.h"
 #include "IOCPSessionManager.h"
 #include "IOCPSession.h"
@@ -16,20 +16,20 @@ public:
 
     void AsyncConnect() const
     {
-        auto const session = IOCPSessionManager::Singleton::Instance().CreateSession();
+        auto const session = IOCPSessionManager::Singleton::GetInstance().CreateSession();
 
         auto* const ioEvent = Overlapped::GetObjectPoolIOEvent(EIOType::CONNECT, session);
         auto const socket = reinterpret_cast<SOCKET>(session->GetHandle());
 
-        if (not SocketUtil::Singleton::Instance().SetReuseAddress(socket, true))
+        if (not SocketUtil::Singleton::GetInstance().SetReuseAddress(socket, true))
         {
             return;
         }
-        if (not SocketUtil::Singleton::Instance().SetLinger(socket, 0, 0))
+        if (not SocketUtil::Singleton::GetInstance().SetLinger(socket, 0, 0))
         {
             return;
         }
-        if (not SocketUtil::Singleton::Instance().SetTcpNoDelay(socket, true))
+        if (not SocketUtil::Singleton::GetInstance().SetTcpNoDelay(socket, true))
         {
             return;
         }
@@ -37,7 +37,7 @@ public:
         SocketAddress serverAddress(_ip, _port);
 
         DWORD numOfBytes = 0;
-        if (not FnConnectEx(
+        if (not fnConnectEx(
             socket,
             serverAddress.GetAsSockAddr(),
             static_cast<int>(serverAddress.GetSize()),
@@ -46,7 +46,7 @@ public:
         {
             if (WSAGetLastError() != WSA_IO_PENDING)
             {
-                ObjectPool<Overlapped>::Singleton::Instance().Release(ioEvent);
+                ObjectPool<Overlapped>::Singleton::GetInstance().Release(ioEvent);
                 return;
             }
         }

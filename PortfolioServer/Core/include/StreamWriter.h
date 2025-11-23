@@ -1,6 +1,6 @@
 #pragma once
 #include "StreamHeader.h"
-#include <google/protobuf/message_lite.h>
+//#include <google/protobuf/message_lite.h>
 
 class StreamWriter
 {
@@ -15,7 +15,7 @@ public:
         _packetCount = 0;
     }
 
-    bool WritePacket(uint16_t packetId, google::protobuf::MessageLite& packet)
+    /*bool WritePacket(uint16_t packetId, google::protobuf::MessageLite& packet)
     {
         auto const  packetSize = static_cast<uint32_t>(packet.ByteSizeLong());
         auto const requiredSize = sizeof(PacketHeader) + packetSize;
@@ -33,7 +33,7 @@ public:
         _offset += packetSize;
         ++_packetCount;
         return true;
-    }
+    }*/
 
     void Finalize()
     {

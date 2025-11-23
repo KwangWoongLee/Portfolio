@@ -1,54 +1,65 @@
 #pragma once
-#include "stdafx.h"
-#include "SocketUtil.h"
-#include "IOCP.h"
+#include "CorePch.h"
+
+#include "BaseSession.h"
+#include "IOCPObject.h"
 #include "IOEvent.h"
 #include "StreamWriter.h"
 #include "StreamReader.h"
-#include "CircularBuffer.h" // 새 버퍼
 
-namespace
-{
-    enum class EIOCPSessionState : uint8_t
-    {
-        NONE,
-        CONNECTING,
-        CONNECTED,
-        DISCONNECTING,
-        DISCONNECTED,
-    };
 
-    enum class EDisconnectReason
-    {
-        NONE,
-        EXPLICIT_CALL,
-        RECV_ZERO,
-        SEND_ZERO,
-        RECV_OVERFLOW,
-        HANDLE_ERROR,
-        INVALID_STATE,
-        SEND_BUFFER_OVERFLOW,
-        INVALID_OPERATION,
-    };
-
-    char const* ToString(EDisconnectReason const reason);
-}
-
-class IOCPSession
-	: public IIOCPObject
+class OverlappedAccept final
+    : public Overlapped
 {
 public:
-    void Dispatch(Overlapped const* iocpEvent, uint32_t const numOfBytes = 0) override;
-
-    bool SetSockAddr();
-    void SetSessionId(SessionId const sessionId)
+    OverlappedAccept()
     {
-        _sessionId = sessionId;
+        ZeroMemory(_acceptBuf, sizeof(_acceptBuf));
     }
 
+    char* GetBuffer()
+    {
+        return _acceptBuf;
+    }
+
+private:
+    char _acceptBuf[sizeof(SOCKADDR_IN) * 2 + 32]{};
+};
+
+enum class EIOCPSessionState : uint8_t
+{
+    None,
+    Connecting,
+    Connected,
+    Disconnecting,
+    Disconnected,
+};
+
+enum class EDisconnectReason
+{
+    None,
+    ExplicitCall,
+    RecvZero,
+    SendZero,
+    RecvOverflow,
+    HandleError,
+    InvalidState,
+    SendBufferOverflow,
+    InvalidOperation,
+};
+
+class IOCPSession
+	: public BaseSession
+	, public IIOCPObject
+{
+public:
+	~IOCPSession() override;
+
+    void Dispatch(Overlapped const* iocpEvent, uint32_t const numOfBytes = 0) override;
+
     void Disconnect(EDisconnectReason const reason);
-    void Send(const char* buffer, uint32_t const contentSize);
-    void SendPacket(uint16_t const packetId, google::protobuf::MessageLite& packet);
+    void Send(char const* buffer, uint32_t const contentSize);
+    //void SendPacket(uint16_t packetId, google::protobuf::MessageLite& packet);
 
     void OnAcceptCompleted();
 
@@ -84,15 +95,14 @@ private:
     void OnRecvCompleted(uint32_t const transferred);
     void OnSendCompleted(uint32_t const transferred);
 
-    void OnRecvPacket(uint16_t const packetId, const void* payload, uint32_t const size);
+    void on_recv_packet(uint16_t const packetId, void const* payload, uint32_t const size);
 
 private:
-    char _acceptBuf[64] = {};
-    SocketAddress _sockAddress;
-    std::atomic<EIOCPSessionState> _state{EIOCPSessionState::NONE};
+    char _acceptBuf[64]{};
+    std::atomic<EIOCPSessionState> _state{EIOCPSessionState::None};
 
-    CircularBuffer _recvBuffer{0x10000};
-    CircularBuffer _sendBuffer{0x10000};
+    CircularBuffer _recvBuffer{ 0x10000 };
+    CircularBuffer _sendBuffer{ 0x10000 };
 
     std::mutex _sendMutex;
     bool _isSendPending{};

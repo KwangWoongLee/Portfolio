@@ -1,11 +1,11 @@
-#include "stdafx.h"
+#include "CorePch.h"
 #include "IOCP.h"
+#include "IOCPObject.h"
 #include "IOEvent.h"
 
-bool IOCP::RegistForCompletionPort(std::shared_ptr<IIOCPObject> const& iocpObject) const
+bool IOCP::RegisterForCompletionPort(HANDLE const handle) const
 {
-    if (auto const handle = ::CreateIoCompletionPort(iocpObject->GetHandle(), _completionPort, 0, 0); 
-		not handle)
+    if (CreateIoCompletionPort(handle, _completionPort, 0, 0))
 	{
 		return false;
 	}
@@ -26,18 +26,18 @@ void IOCP::Stop() const
 void IOCP::IOWorkerFunc(uint32_t const timeout) const
 {
 	Overlapped* ioEvent = nullptr;
-	auto const _ = RAII([&ioEvent]() {
-		if (ioEvent)
-		{
-			ObjectPool<Overlapped>::Singleton::Instance().Release(ioEvent);
-		}
+	RAII _([&ioEvent]() {
+			if (ioEvent)
+			{
+				ObjectPool<Overlapped>::Singleton::GetInstance().Release(ioEvent);
+			}
 		});
 
 	ULONG_PTR key = 0;
 	DWORD dwTransferred = 0;
 
 	auto const result = ::GetQueuedCompletionStatus(_completionPort, &dwTransferred, &key, reinterpret_cast<LPOVERLAPPED*>(&ioEvent), timeout);
-	if (key == SHUTDOWN_KEY)
+	if (SHUTDOWN_KEY == key)
 	{
 		return;
 	}
@@ -48,7 +48,7 @@ void IOCP::IOWorkerFunc(uint32_t const timeout) const
 	}
 
 	if (result)
-	{// 정상적인 io event 발생
+	{ // success
 		auto const iocpObject = ioEvent->GetIOCPObject();
 		if (not iocpObject)
 		{
@@ -59,8 +59,7 @@ void IOCP::IOWorkerFunc(uint32_t const timeout) const
 	}
 	else 
 	{
-		auto const err = WSAGetLastError();
-		switch (err)
+		switch (auto const err = WSAGetLastError())
 		{
 		case ERROR_NETNAME_DELETED:
 		case ERROR_CONNECTION_ABORTED:

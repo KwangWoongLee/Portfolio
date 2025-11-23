@@ -10,6 +10,7 @@
 #include <windows.h>
 #pragma comment(lib, "ws2_32.lib")
 
+#include <cassert>
 
 // std
 #include <iostream>
@@ -32,18 +33,12 @@
 
 #include <shared_mutex>
 
-#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
-#include <google/protobuf/io/coded_stream.h>
-#include <google/protobuf/message_lite.h>
-
-
 #include "RAII.h"
 #include "Singleton.h"
 
 #include "ObjectPool.h"
 #include "LockQueue.h"
+#include "CircularBuffer.h"
 
 #include "Task.h"
 #include "BaseSessionManager.h"
-
-using SessionId = int64_t; //TODO: types.h

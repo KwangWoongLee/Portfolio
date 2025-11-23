@@ -1,31 +1,35 @@
-#include "stdafx.h"
+#include "CorePch.h"
 #include "ClientEngine.h"
 
-ClientEngine::ClientEngine(std::string_view serverIP, uint16_t serverPort, IOCPRef iocp, uint16_t maxSessionCount, SessionFactory sessionFactory)
+#include "IOCPSession.h"
+
+ClientEngine::ClientEngine(std::string const& serverIp, uint16_t const serverPort, std::shared_ptr<IOCP> const& iocp, uint16_t const maxSessionCount, SessionFactory const& sessionFactory)
     : Engine(iocp, maxSessionCount, sessionFactory),
-	mServerSockAddr(SocketAddress(serverIP, serverPort)),
+	_serverPort(serverPort),
 	//mServerIP(serverIP),
-	mServerPort(serverPort)
+	_serverSockAddr(SocketAddress(serverIp, serverPort))
 {
 }
 
 bool ClientEngine::Init()
 {
-	if (Engine::Init() == false)
-		return false;
-
-	const int32_t sessionCount = GetMaxSessionCount();
-	for (int32_t i = 0; i < sessionCount; i++)
+	if (not Engine::Init())
 	{
-		SessionRef session = CreateSession();
-		if (session->Connect() == false)
+		return false;
+	}
+
+	int32_t const sessionCount = GetMaxSessionCount();
+	for (int32_t i{}; i < sessionCount; i++)
+	{
+		if (auto const session = CreateSession(); 
+			not session->Connect())
 			return false;
 	}
 
 	return true;
 }
 
-void ClientEngine::Run(uint32_t timeout)
+void ClientEngine::Run(uint32_t const timeout)
 {
 	Engine::Run(timeout);
 }

@@ -1,18 +1,17 @@
 #pragma once
-#include "stdafx.h"
+#include "CorePch.h"
 
 enum class EIOType : uint8_t
 {
-    NONE,
-    SEND,
-    RECV,
-    ACCEPT,
-    CONNECT,
-    DISCONNECT
+    None,
+    Send,
+    Recv,
+    Accept,
+    Connect,
+    Disconnect
 };
 
 class IIOCPObject;
-class IOCPSession;
 
 class Overlapped
     : public OVERLAPPED
@@ -21,7 +20,7 @@ public:
     void Init()
     {
         ZeroMemory(this, sizeof(OVERLAPPED));
-        _ioType = EIOType::NONE;
+        _ioType = EIOType::None;
         _iocpObj = nullptr;
     }
 
@@ -42,7 +41,7 @@ public:
         return _iocpObj;
     }
 
-    void SetIOCPObject(std::shared_ptr<IIOCPObject> const iocpObj)
+    void SetIOCPObject(std::shared_ptr<IIOCPObject> const& iocpObj)
     {
         _iocpObj = iocpObj;
     }
@@ -50,7 +49,7 @@ public:
     [[nodiscard]]
     static Overlapped* GetObjectPoolIOEvent(EIOType const ioType, std::shared_ptr<IIOCPObject> const& iocpObject)
     {
-        auto const ioEvent = ObjectPool<Overlapped>::Singleton::Instance().Acquire();
+        auto const ioEvent = ObjectPool<Overlapped>::Singleton::GetInstance().Acquire();
 
         ioEvent->Init();
         ioEvent->SetIOType(ioType);
@@ -62,22 +61,4 @@ public:
 private:
     EIOType _ioType{};
     std::shared_ptr<IIOCPObject> _iocpObj;
-};
-
-class OverlappedAccept final
-	: public Overlapped
-{
-public:
-    OverlappedAccept()
-    {
-        ZeroMemory(_acceptBuf, sizeof(_acceptBuf));
-    }
-
-    char* GetBuffer()
-    {
-        return _acceptBuf;
-    }
-
-private:
-    char _acceptBuf[sizeof(SOCKADDR_IN) * 2 + 32]{};
 };

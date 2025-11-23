@@ -1,5 +1,5 @@
 #pragma once
-#include "stdafx.h"
+#include "CorePch.h"
 
 template <typename T>
 class ObjectPool
@@ -53,7 +53,7 @@ public:
         return std::shared_ptr<T>(
             obj,
             [](T* ptr) {
-                Singleton::Instance().Release(ptr);
+                Singleton::GetInstance().Release(ptr);
             }
         );
     }

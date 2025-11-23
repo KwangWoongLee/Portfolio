@@ -1,26 +1,21 @@
 #pragma once
 #include "IOCP.h"
+#include "IOCPObject.h"
+#include "SocketAddress.h"
 
 class Listener
 	: public IIOCPObject
 {
 public:
-	explicit Listener(std::shared_ptr<IOCP> const& iocp)
-		:_iocp(iocp)
-	{
-	}
-
-	virtual ~Listener() = default;
+	explicit Listener(uint16_t const port, std::function<bool(HANDLE const)> const&& funcRegisterForCompletionPort);
+	~Listener() override = default;
 
 	void Dispatch(Overlapped const* iocpEvent, uint32_t const numOfBytes = 0) override;
 
-public:
-	bool Init();
+private:
+	void PrepareAccepts() const;
+	void AsyncAccept() const;
 
 private:
-	void prepareAccepts();
-	void asyncAccept();
-
-private:
-	std::shared_ptr<IOCP> const _iocp;
+	SocketAddress _socketAddress;
 };

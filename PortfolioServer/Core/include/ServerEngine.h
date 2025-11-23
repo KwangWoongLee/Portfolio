@@ -1,24 +1,24 @@
 #pragma once
-#include "Listener.h"
 #include "Engine.h"
 
-class ServerEngine : public Engine
+// TODO: Config
+constexpr uint16_t MAX_SESSION_COUNT = 1500;
+
+class Listener;
+class Connector;
+
+class ServerEngine final
+	: public Engine
 {
 public:
-	ServerEngine(std::string_view ip, uint16_t port, std::shared_ptr<IOCP> iocp, uint16_t maxSessionCount, SessionFactory sessionFactory);
-	virtual ~ServerEngine() = default;
+	ServerEngine(uint16_t const port, std::shared_ptr<IOCP> const& iocp);
+	~ServerEngine() override = default;
 
-public:
-	virtual bool Init() override;
-	virtual void Run(uint32_t timeout = INFINITE) override;
-	virtual void Stop() override;
-
-	SocketAddress& GetSockAddress() { return mSockAddr; };
+	void Run(uint32_t timeout = INFINITE) override;
+	void Stop() override;
 	
 private:
-	std::string mIP;
-	uint16_t mPort;
-	ListenerRef mListener = nullptr;
-	SocketAddress mSockAddr = {};
+	std::shared_ptr<Listener> _listener;
+	std::shared_ptr<Connector> _connector;
 };
 
