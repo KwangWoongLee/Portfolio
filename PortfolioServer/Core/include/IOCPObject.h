@@ -22,5 +22,5 @@ public:
     virtual void Dispatch(Overlapped const* iocpEvent, uint32_t const numOfBytes = 0) = 0;
 
 private:
-    HANDLE _handle;
+    HANDLE _handle{ INVALID_HANDLE_VALUE };
 };

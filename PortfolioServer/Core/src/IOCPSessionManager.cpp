@@ -1,52 +1,31 @@
 #include "CorePch.h"
 #include "IOCPSessionManager.h"
 
-#include "IOCP.h"
-#include "SocketUtil.h"
-
 void IOCPSessionManager::Init(std::shared_ptr<IOCP> const& iocp)
 {
-	_iocp = iocp;
-}
-
-std::shared_ptr<IOCPSession> IOCPSessionManager::CreateSession()
-{
-    if (not _iocp)
+    if (not iocp)
     {
-		//TODO: log
-        return nullptr;
+        assert(false);
     }
 
-    auto const iocpSession = ObjectPool<IOCPSession>::Singleton::GetInstance().AcquireShared();
-    iocpSession->SetHandle(reinterpret_cast<HANDLE>(SocketUtil::Singleton::GetInstance().CreateSocket()));
-
-    if (not Add(iocpSession))
-    {
-        return nullptr;
-    }
-
-    if (not _iocp->RegisterForCompletionPort(iocpSession->GetHandle()))
-    {
-        Remove(iocpSession->GetSessionId());
-        return nullptr;
-    }
-
-    return iocpSession;
+    _iocp = iocp;
 }
 
 void IOCPSessionManager::ReleaseSession(SessionId const sessionId)
 {
-    if (not _iocp)
+    std::unique_lock lock(_mutex);
+    _sessions.erase(sessionId);
+}
+
+std::shared_ptr<IOCPSession> IOCPSessionManager::Find(SessionId const sessionId) const
+{
+    std::shared_lock lock(_mutex);
+
+    auto const iter = _sessions.find(sessionId);
+    if (iter == _sessions.end())
     {
-        //TODO: log
+        return nullptr;
     }
 
-    if (auto const baseSession = Remove(sessionId))
-    {
-        if (auto const iocpSession = std::dynamic_pointer_cast<IOCPSession>(baseSession))
-        {
-            SocketUtil::Singleton::GetInstance().CloseSocket(reinterpret_cast<SOCKET>(iocpSession->GetHandle()));
-            iocpSession->SetHandle(nullptr);
-        }
-    }
+    return iter->second;
 }

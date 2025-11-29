@@ -17,12 +17,20 @@ class Overlapped
     : public OVERLAPPED
 {
 public:
-    void Init()
+    void Init(std::function<void(Overlapped*)>&& funcRelease = nullptr)
     {
         ZeroMemory(this, sizeof(OVERLAPPED));
-        _ioType = EIOType::None;
+
+        _funcRelease = std::move(funcRelease);
+    	_ioType = EIOType::None;
         _iocpObj = nullptr;
     }
+
+	[[nodiscard]]
+    std::function<void(Overlapped*)> const& GetReleaseFunction() const
+    {
+        return _funcRelease;
+	}
 
     [[nodiscard]]
     EIOType GetIOType() const
@@ -59,6 +67,7 @@ public:
     }
 
 private:
+    std::function<void(Overlapped*)> _funcRelease;
     EIOType _ioType{};
     std::shared_ptr<IIOCPObject> _iocpObj;
 };

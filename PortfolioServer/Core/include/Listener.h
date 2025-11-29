@@ -1,21 +1,28 @@
 #pragma once
-#include "IOCP.h"
 #include "IOCPObject.h"
 #include "SocketAddress.h"
 
+class IOCPSession;
+
 class Listener
-	: public IIOCPObject
+    : public IIOCPObject
 {
 public:
-	explicit Listener(uint16_t const port, std::function<bool(HANDLE const)> const&& funcRegisterForCompletionPort);
-	~Listener() override = default;
+    using FuncCreateSession = std::function<std::shared_ptr<IOCPSession>()>;
 
-	void Dispatch(Overlapped const* iocpEvent, uint32_t const numOfBytes = 0) override;
+public:
+    Listener(uint16_t const port,
+        std::function<bool(HANDLE const)> const& funcRegisterForCompletionPort,
+        FuncCreateSession&& funcCreateSession);
+
+    void Dispatch(Overlapped const* iocpEvent, uint32_t numOfBytes = 0) override;
 
 private:
-	void PrepareAccepts() const;
-	void AsyncAccept() const;
+    void PrepareAccepts();
+    void AsyncAccept();
 
 private:
-	SocketAddress _socketAddress;
+    SocketAddress _socketAddress;
+
+    FuncCreateSession  _funcCreateSession;
 };
