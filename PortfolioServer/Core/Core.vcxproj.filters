@@ -11,9 +11,6 @@
     <ClInclude Include="include\ServerEngine.h">
       <Filter>Engine</Filter>
     </ClInclude>
-    <ClInclude Include="include\CircularBuffer.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="include\Connector.h">
       <Filter>Network</Filter>
     </ClInclude>
@@ -71,13 +68,16 @@
     <ClInclude Include="include\BaseSession.h">
       <Filter>Network</Filter>
     </ClInclude>
-    <ClInclude Include="include\StreamWriter.h">
+    <ClInclude Include="include\Stream.h">
       <Filter>Network</Filter>
     </ClInclude>
-    <ClInclude Include="include\StreamHeader.h">
+    <ClInclude Include="include\LinearBuffer.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="include\StreamTypes.h">
       <Filter>Network</Filter>
     </ClInclude>
-    <ClInclude Include="include\StreamReader.h">
+    <ClInclude Include="include\Packet.h">
       <Filter>Network</Filter>
     </ClInclude>
   </ItemGroup>

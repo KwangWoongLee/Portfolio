@@ -40,6 +40,7 @@ public:
         {
             //TODO: log
             assert(false);
+            return;
         }
 
         iter->second->Reserve(task);

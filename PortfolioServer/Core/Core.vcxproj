@@ -22,7 +22,6 @@
     <ClInclude Include="include\App.h" />
     <ClInclude Include="include\BaseSession.h" />
     <ClInclude Include="include\BaseSessionManager.h" />
-    <ClInclude Include="include\CircularBuffer.h" />
     <ClInclude Include="include\Connector.h" />
     <ClInclude Include="include\CorePch.h" />
     <ClInclude Include="include\Engine.h" />
@@ -32,18 +31,19 @@
     <ClInclude Include="include\IOCPSessionManager.h" />
     <ClInclude Include="include\IOEvent.h" />
     <ClInclude Include="include\KeySerialTaskExecutor.h" />
+    <ClInclude Include="include\LinearBuffer.h" />
     <ClInclude Include="include\Listener.h" />
     <ClInclude Include="include\LockQueue.h" />
     <ClInclude Include="include\ObjectPool.h" />
+    <ClInclude Include="include\Packet.h" />
     <ClInclude Include="include\PacketSendTaskBase.h" />
     <ClInclude Include="include\RAII.h" />
     <ClInclude Include="include\ServerEngine.h" />
     <ClInclude Include="include\Singleton.h" />
     <ClInclude Include="include\SocketAddress.h" />
     <ClInclude Include="include\SocketUtil.h" />
-    <ClInclude Include="include\StreamHeader.h" />
-    <ClInclude Include="include\StreamReader.h" />
-    <ClInclude Include="include\StreamWriter.h" />
+    <ClInclude Include="include\Stream.h" />
+    <ClInclude Include="include\StreamTypes.h" />
     <ClInclude Include="include\Task.h" />
     <ClInclude Include="include\TaskDispatcher.h" />
   </ItemGroup>

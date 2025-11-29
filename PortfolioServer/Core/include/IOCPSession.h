@@ -4,8 +4,8 @@
 #include "BaseSession.h"
 #include "IOCPObject.h"
 #include "IOEvent.h"
-#include "StreamWriter.h"
-#include "StreamReader.h"
+#include "LinearBuffer.h"
+#include "Stream.h"
 
 
 class OverlappedAccept final
@@ -44,7 +44,7 @@ enum class EDisconnectReason
     RecvOverflow,
     HandleError,
     InvalidState,
-    SendBufferOverflow,
+    SendOverflow,
     InvalidOperation,
 };
 
@@ -53,13 +53,41 @@ class IOCPSession
 	, public IIOCPObject
 {
 public:
-	~IOCPSession() override;
+    ~IOCPSession() override;
 
     void Dispatch(Overlapped const* iocpEvent, uint32_t const numOfBytes = 0) override;
 
     void Disconnect(EDisconnectReason const reason);
-    void Send(char const* buffer, uint32_t const contentSize);
-    //void SendPacket(uint16_t packetId, google::protobuf::MessageLite& packet);
+    void FlushPacketStream();
+
+    template <typename T>
+    void SendPacket(T const& packet)
+    {
+        if (EIOCPSessionState::Connected != _state)
+        {
+            return;
+        }
+
+        if (not _hasPendingStream)
+        {
+            _pendingStream.Reset();
+            _hasPendingStream = true;
+        }
+
+        if (not packet.WriteToStream(_pendingStream))
+        {
+            FlushPacketStream();
+
+            _pendingStream.Reset();
+            _hasPendingStream = true;
+
+            if (not packet.WriteToStream(_pendingStream))
+            {
+                Disconnect(EDisconnectReason::SendOverflow);
+                return;
+            }
+        }
+    }
 
     void OnAcceptCompleted();
 
@@ -73,12 +101,8 @@ protected:
     SessionId _sessionId{};
 
 private:
-    virtual void OnConnected()
-    {
-    }
-    virtual void OnDisconnected()
-    {
-    }
+    virtual void OnConnected() {}
+    virtual void OnDisconnected() {}
 
     void SetConnected();
     void SetDisconnected();
@@ -88,27 +112,28 @@ private:
     void AsyncSend();
     void HandleError(int32_t const errorCode);
 
-    bool TryProcessPacket();
+    void Send(char const* buffer, uint32_t const contentSize);
 
     void OnConnectCompleted();
     void OnDisconnectCompleted();
     void OnRecvCompleted(uint32_t const transferred);
     void OnSendCompleted(uint32_t const transferred);
 
-    void on_recv_packet(uint16_t const packetId, void const* payload, uint32_t const size);
-
 private:
     char _acceptBuf[64]{};
     std::atomic<EIOCPSessionState> _state{EIOCPSessionState::None};
 
-    CircularBuffer _recvBuffer{ 0x10000 };
-    CircularBuffer _sendBuffer{ 0x10000 };
+    static uint16_t constexpr RECV_BUFFER_SIZE = 65535;
+    LinearBuffer _recvBuffer{ RECV_BUFFER_SIZE };
 
-    std::mutex _sendMutex;
+    static uint16_t constexpr SEND_BUFFER_SIZE = 65535;
+    LinearBuffer _sendBuffer{ SEND_BUFFER_SIZE };
+    
+	Stream _pendingStream;
+    bool _hasPendingStream{};
+    
+	std::mutex _sendMutex;
     bool _isSendPending{};
-
-    StreamWriter _streamWriter;
-    StreamReader _streamReader;
 
     PacketHandler _packetHandler;
 };

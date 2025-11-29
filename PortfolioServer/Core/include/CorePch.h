@@ -25,6 +25,7 @@
 #include <string_view>
 
 #include <iostream>
+#include <array>
 #include <vector>
 #include <unordered_map>
 #include <atomic>
@@ -38,7 +39,6 @@
 
 #include "ObjectPool.h"
 #include "LockQueue.h"
-#include "CircularBuffer.h"
 
 #include "Task.h"
 #include "BaseSessionManager.h"

@@ -7,7 +7,7 @@ class PacketSendTask
 {
 public:
     PacketSendTask(int64_t const key, uint16_t const pktId, google::protobuf::MessageLite const& pkt)
-	: ITask(ETaskType::BASIC, key)
+	: ITask(ETaskType::Basic, key)
 	, _key(key)
 	, _pktId(pktId)
 	, _pkt(pkt)
@@ -16,7 +16,7 @@ public:
 
     void Execute() override
     {
-	    if (auto const session = SessionManagerT::Singleton::GetInstance().Find(_key))
+	    if (auto const session = T_SESSION_MANAGER::Singleton::GetInstance().Find(_key))
         {
             session->SendPacket(_pktId, _pkt);
         }

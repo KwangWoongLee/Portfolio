@@ -26,7 +26,8 @@ public:
         _pool.clear();
     }
 
-    T* Acquire()
+    template <typename... ARGS>
+    T* Acquire(ARGS&&... args)
     {
         std::scoped_lock lock(_mutex);
 
@@ -37,7 +38,7 @@ public:
             return obj;
         }
 
-        return new T();
+        return new T(std::forward<ARGS>(args)...);
     }
 
     void Release(T* obj)
@@ -46,9 +47,10 @@ public:
         _pool.emplace_back(obj);
     }
 
-    std::shared_ptr<T> AcquireShared()
+    template <typename... ARGS>
+    std::shared_ptr<T> AcquireShared(ARGS&&... args)
     {
-        T* obj = Acquire();
+        T* obj = Acquire(std::forward<ARGS>(args)...);
 
         return std::shared_ptr<T>(
             obj,
