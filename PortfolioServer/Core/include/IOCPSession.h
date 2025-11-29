@@ -1,18 +1,18 @@
 #pragma once
 #include "CorePch.h"
 
-#include "BaseSession.h"
 #include "IOCPObject.h"
 #include "IOEvent.h"
-#include "StreamWriter.h"
-#include "StreamReader.h"
+#include "LinearBuffer.h"
+#include "Stream.h"
 
 
 class OverlappedAccept final
     : public Overlapped
 {
 public:
-    OverlappedAccept()
+	explicit OverlappedAccept(std::shared_ptr<IOCPSession> const& acceptedSession)
+		: _acceptedSession(acceptedSession)
     {
         ZeroMemory(_acceptBuf, sizeof(_acceptBuf));
     }
@@ -24,6 +24,7 @@ public:
 
 private:
     char _acceptBuf[sizeof(SOCKADDR_IN) * 2 + 32]{};
+    std::shared_ptr<IOCPSession> _acceptedSession;
 };
 
 enum class EIOCPSessionState : uint8_t
@@ -35,50 +36,56 @@ enum class EIOCPSessionState : uint8_t
     Disconnected,
 };
 
-enum class EDisconnectReason
-{
-    None,
-    ExplicitCall,
-    RecvZero,
-    SendZero,
-    RecvOverflow,
-    HandleError,
-    InvalidState,
-    SendBufferOverflow,
-    InvalidOperation,
-};
-
 class IOCPSession
-	: public BaseSession
-	, public IIOCPObject
+	: public IIOCPObject
 {
 public:
-	~IOCPSession() override;
+    ~IOCPSession() override;
+
+    virtual void HandlePacket(uint16_t packetId, void const* payload, uint32_t size) = 0;
+
+    SessionId GetSessionId() const { return _sessionId; }
+
+    void SetSessionId(SessionId const sessionId) { _sessionId = sessionId; }
 
     void Dispatch(Overlapped const* iocpEvent, uint32_t const numOfBytes = 0) override;
 
     void Disconnect(EDisconnectReason const reason);
-    void Send(char const* buffer, uint32_t const contentSize);
-    //void SendPacket(uint16_t packetId, google::protobuf::MessageLite& packet);
+    void FlushPacketStream();
 
     void OnAcceptCompleted();
 
-protected:
-    using PacketHandler = std::function<void(uint16_t const packetId, void const* payload, uint32_t const size)>;
-    void SetPacketHandler(PacketHandler const& handler)
+    template <typename T>
+    void SendPacket(T const& packet)
     {
-        _packetHandler = handler;
+        if (EIOCPSessionState::Connected != _state)
+        {
+            return;
+        }
+
+        if (not _hasPendingStream)
+        {
+            _pendingStream.Reset();
+            _hasPendingStream = true;
+        }
+
+        if (not packet.WriteToStream(_pendingStream))
+        {
+            FlushPacketStream();
+
+            _pendingStream.Reset();
+            _hasPendingStream = true;
+
+            if (not packet.WriteToStream(_pendingStream))
+            {
+                Disconnect(EDisconnectReason::SendOverflow);
+                return;
+            }
+        }
     }
-
-    SessionId _sessionId{};
-
 private:
-    virtual void OnConnected()
-    {
-    }
-    virtual void OnDisconnected()
-    {
-    }
+    virtual void OnConnected() {}
+    virtual void OnDisconnected() {}
 
     void SetConnected();
     void SetDisconnected();
@@ -88,27 +95,27 @@ private:
     void AsyncSend();
     void HandleError(int32_t const errorCode);
 
-    bool TryProcessPacket();
+    void Send(char const* buffer, uint32_t const contentSize);
 
     void OnConnectCompleted();
     void OnDisconnectCompleted();
     void OnRecvCompleted(uint32_t const transferred);
     void OnSendCompleted(uint32_t const transferred);
 
-    void on_recv_packet(uint16_t const packetId, void const* payload, uint32_t const size);
+    void HandleStream(Stream& outStream);
 
 private:
+    SessionId _sessionId{};
+
     char _acceptBuf[64]{};
     std::atomic<EIOCPSessionState> _state{EIOCPSessionState::None};
 
-    CircularBuffer _recvBuffer{ 0x10000 };
-    CircularBuffer _sendBuffer{ 0x10000 };
-
-    std::mutex _sendMutex;
+    LinearBuffer _recvBuffer{Stream::MAX_SIZE };
+    LinearBuffer _sendBuffer{ Stream::MAX_SIZE };
+    
+	Stream _pendingStream;
+    bool _hasPendingStream{};
+    
+	std::mutex _sendMutex;
     bool _isSendPending{};
-
-    StreamWriter _streamWriter;
-    StreamReader _streamReader;
-
-    PacketHandler _packetHandler;
 };

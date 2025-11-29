@@ -2,7 +2,9 @@
 #include "IOCPSession.h"
 
 #include "IOCPSessionManager.h"
+#include "PacketTask.h"
 #include "SocketUtil.h"
+#include "TaskDispatcher.h"
 
 IOCPSession::~IOCPSession()
 {
@@ -44,58 +46,29 @@ void IOCPSession::Disconnect(EDisconnectReason const reason)
         return;
     }
 
+	_state = EIOCPSessionState::Disconnecting;
+
     AsyncDisconnect();
 }
 
-void IOCPSession::Send(char const* buffer, uint32_t const contentSize)
+void IOCPSession::FlushPacketStream()
 {
-    if (_state != EIOCPSessionState::Connected)
+    if (not _hasPendingStream)
     {
         return;
     }
 
-    bool registerSend = false;
-
+    auto const totalSize = _pendingStream.GetTotalSize();
+    if (totalSize <= sizeof(StreamHeader))
     {
-        std::scoped_lock lock(_sendMutex);
-
-        if (_sendBuffer.GetFreeSpaceSize() < contentSize)
-        {
-            return;
-        }
-
-        memcpy(_sendBuffer.GetBuffer(), buffer, contentSize);
-        _sendBuffer.Commit(contentSize);
-
-        if (!_isSendPending)
-        {
-            _isSendPending = true;
-            registerSend = true;
-        }
+        _hasPendingStream = false;
+        return;
     }
 
-    if (registerSend)
-    {
-        AsyncSend();
-    }
+    Send(reinterpret_cast<char const*>(_pendingStream.GetData()), totalSize);
+
+    _hasPendingStream = false;
 }
-
-/*void IOCPSession::SendPacket(uint16_t const packetId, google::protobuf::MessageLite& packet)
-{
-    if (_state != EIOCPSessionState::Connected)
-    {
-        return;
-    }
-
-    uint8_t tempBuffer[0x10000];
-    _streamWriter.Init(tempBuffer, sizeof(tempBuffer));
-
-    if (_streamWriter.WritePacket(packetId, packet))
-    {
-        _streamWriter.Finalize();
-        Send(reinterpret_cast<const char*>(tempBuffer), _streamWriter.GetSize());
-    }
-}*/
 
 void IOCPSession::OnAcceptCompleted()
 {
@@ -122,42 +95,6 @@ void IOCPSession::OnDisconnectCompleted()
     SetDisconnected();
 }
 
-bool IOCPSession::TryProcessPacket()
-{
-    if (_recvBuffer.GetContiguousBytes() < sizeof(StreamHeader))
-    {
-        return false;
-    }
-
-    auto const streamHeader = reinterpret_cast<StreamHeader const*>(_recvBuffer.GetBufferStart());
-
-    if (0 == streamHeader->size || streamHeader->size > _recvBuffer.GetCapacity())
-    {
-        Disconnect(EDisconnectReason::InvalidOperation);
-        return false;
-    }
-
-    if (_recvBuffer.GetContiguousBytes() < sizeof(StreamHeader) + streamHeader->size)
-    {
-        return false;
-    }
-
-    _streamReader.Init(
-        _recvBuffer.GetBufferStart() + sizeof(StreamHeader),
-        streamHeader->size);
-
-    PacketHeader packetHeader;
-    void const* payload = nullptr;
-
-    while (_streamReader.ReadPacket(packetHeader, payload))
-    {
-        /*on_recv_packet(packetHeader.id, payload, packetHeader.size);*/
-    }
-
-    _recvBuffer.Remove(sizeof(StreamHeader) + streamHeader->size);
-    return true;
-}
-
 void IOCPSession::OnRecvCompleted(uint32_t const transferred)
 {
     if (0 == transferred)
@@ -166,16 +103,29 @@ void IOCPSession::OnRecvCompleted(uint32_t const transferred)
         return;
     }
 
-    if (_recvBuffer.GetFreeSpaceSize() < transferred)
+    if (_recvBuffer.GetWritableSize() < transferred)
     {
         Disconnect(EDisconnectReason::RecvOverflow);
         return;
     }
 
-    _recvBuffer.Commit(transferred);
+    _recvBuffer.CommitWrite(transferred);
 
-    while (TryProcessPacket())
+    Stream stream;
+    while (true)
     {
+	    if (auto const [isSuccess, disConnectReasonOpt] = Stream::TryReadFromRecvBuffer(_recvBuffer, stream); not isSuccess)
+        {
+            if (disConnectReasonOpt.has_value())
+            {
+                Disconnect(disConnectReasonOpt.value());
+			}
+
+            break;
+        }
+
+		HandleStream(stream);
+        stream.Reset();
     }
 
     AsyncRecv();
@@ -183,35 +133,79 @@ void IOCPSession::OnRecvCompleted(uint32_t const transferred)
 
 void IOCPSession::OnSendCompleted(uint32_t const transferred)
 {
-    if (transferred == 0)
+    if (0 == transferred)
     {
         Disconnect(EDisconnectReason::SendZero);
         return;
     }
 
-    std::scoped_lock lock(_sendMutex);
-
-    _sendBuffer.Remove(transferred);
-    _isSendPending = false;
-
-    if (_sendBuffer.GetContiguousBytes() > 0)
+    bool isNeedToSend{ false };
     {
-        _isSendPending = true;
+        std::scoped_lock lock(_sendMutex);
+
+        _sendBuffer.CommitRead(transferred);
+
+        _isSendPending = false;
+        if (0 < _sendBuffer.GetReadableSize())
+        {
+            _isSendPending = true;
+            isNeedToSend = true;
+        }
+    }
+
+    if (isNeedToSend)
+    {
         AsyncSend();
+	}
+}
+
+void IOCPSession::HandleStream(Stream& outStream)
+{
+    auto const* data = outStream.GetData();
+
+    auto const* streamHeader = reinterpret_cast<StreamHeader const*>(data);
+    uint32_t const totalSize = static_cast<uint32_t>(sizeof(StreamHeader)) + streamHeader->_bodySize;
+
+    uint32_t offset = sizeof(StreamHeader);
+
+    while (offset + sizeof(PacketHeader) <= totalSize)
+    {
+        auto const* pktHeader = reinterpret_cast<PacketHeader const*>(data + offset);
+
+        uint16_t const packetId = pktHeader->_id;
+        uint16_t const packetBodySize = pktHeader->_size;
+
+        uint32_t const packetBodyStart = offset + static_cast<uint32_t>(sizeof(PacketHeader));
+        uint32_t const packetBodyEnd = packetBodyStart + packetBodySize;
+
+        if (packetBodyEnd > totalSize)
+        {
+            Disconnect(EDisconnectReason::InvalidOperation);
+            return;
+        }
+
+        void const* payload = data + packetBodyStart;
+
+        std::vector<uint8_t> payloadCopy;
+        payloadCopy.resize(packetBodySize);
+
+        if (packetBodySize > 0)
+        {
+            ::memcpy(payloadCopy.data(), payload, packetBodySize); // TODO: optimize
+        }
+
+        auto task = std::make_shared<PacketRecvTask>(_sessionId, packetId, std::move(payloadCopy));
+        TaskDispatcher::Singleton::GetInstance().Dispatch(task);
+
+        offset = packetBodyEnd;
+    }
+
+    if (offset != totalSize)
+    {
+        Disconnect(EDisconnectReason::InvalidOperation);
     }
 }
 
-void IOCPSession::on_recv_packet(uint16_t const packetId, void const* payload, uint32_t const size)
-{
-    if (_packetHandler)
-    {
-        _packetHandler(packetId, payload, size);
-    }
-    else
-    {
-        // TODO: log
-    }
-} 
 
 void IOCPSession::SetConnected()
 {
@@ -238,38 +232,45 @@ void IOCPSession::AsyncDisconnect()
 
     if (not fnDisconnectEx(reinterpret_cast<SOCKET>(GetHandle()), disconnectIoEvent, TF_REUSE_SOCKET, 0))
     {
-        if (auto const error = WSAGetLastError(); error != WSA_IO_PENDING)
+        if (auto const err = WSAGetLastError(); err != WSA_IO_PENDING)
         {
             ObjectPool<Overlapped>::Singleton::GetInstance().Release(disconnectIoEvent);
-            ::closesocket(reinterpret_cast<SOCKET>(GetHandle()));
         }
     }
 }
 
 void IOCPSession::AsyncRecv()
 {
-    if (_state != EIOCPSessionState::Connected)
+    if (EIOCPSessionState::Connected != _state)
     {
         return;
     }
 
     auto const recvIoEvent = Overlapped::GetObjectPoolIOEvent(EIOType::Recv, shared_from_this());
 
-    uint32_t freeSpace = _recvBuffer.GetFreeSpaceSize();
-    if (freeSpace == 0)
+    if (not _recvBuffer.EnsureWritable(0x1000))
     {
-        //TODO: log - No free space in RecvBuffer
+		ObjectPool<Overlapped>::Singleton::GetInstance().Release(recvIoEvent);
+        Disconnect(EDisconnectReason::RecvOverflow);
+    	return;
+    }
+
+    auto const writableSize = _recvBuffer.GetWritableSize();
+    if (0 == writableSize)
+    {
+        ObjectPool<Overlapped>::Singleton::GetInstance().Release(recvIoEvent);
         return;
     }
 
+
     WSABUF wsaBuf;
-    wsaBuf.buf = reinterpret_cast<char*>(_recvBuffer.GetBuffer());
-    wsaBuf.len = static_cast<ULONG>(freeSpace);
+    wsaBuf.buf = reinterpret_cast<char*>(_recvBuffer.GetWritePtr());
+    wsaBuf.len = static_cast<ULONG>(writableSize);
 
     DWORD flags = 0;
     DWORD recvBytes = 0;
 
-    if (SOCKET_ERROR == WSARecv(reinterpret_cast<SOCKET>(GetHandle()), &wsaBuf, 1, &recvBytes, &flags, recvIoEvent, NULL))
+    if (SOCKET_ERROR == WSARecv(reinterpret_cast<SOCKET>(GetHandle()), &wsaBuf, 1, &recvBytes, &flags, recvIoEvent, nullptr))
     {
         if (auto const err = WSAGetLastError(); err != WSA_IO_PENDING)
         {
@@ -281,14 +282,14 @@ void IOCPSession::AsyncRecv()
 
 void IOCPSession::AsyncSend()
 {
-    if (_state != EIOCPSessionState::Connected)
+    if (EIOCPSessionState::Connected != _state)
     {
         return;
     }
 
     std::scoped_lock lock(_sendMutex);
 
-    if (_sendBuffer.GetContiguousBytes() == 0)
+    if (0 == _sendBuffer.GetReadableSize())
     {
         return;
     }
@@ -296,13 +297,12 @@ void IOCPSession::AsyncSend()
     auto const sendIoEvent = Overlapped::GetObjectPoolIOEvent(EIOType::Send, shared_from_this());
 
     WSABUF wsaBuf;
-    wsaBuf.buf = reinterpret_cast<CHAR*>(_sendBuffer.GetBufferStart());
-    wsaBuf.len = static_cast<ULONG>(_sendBuffer.GetContiguousBytes());
+    wsaBuf.buf = reinterpret_cast<CHAR*>(_sendBuffer.GetReadPtr());
+    wsaBuf.len = static_cast<ULONG>(_sendBuffer.GetReadableSize());
 
-    DWORD sendBytes = 0;
-    DWORD flags = 0;
-
-    if (SOCKET_ERROR == WSASend(reinterpret_cast<SOCKET>(GetHandle()), &wsaBuf, 1, &sendBytes, flags, sendIoEvent, NULL))
+    DWORD sendBytes{};
+    DWORD constexpr flags{};
+    if (SOCKET_ERROR == WSASend(reinterpret_cast<SOCKET>(GetHandle()), &wsaBuf, 1, &sendBytes, flags, sendIoEvent, nullptr))
     {
         if (auto const err = WSAGetLastError(); err != WSA_IO_PENDING)
         {
@@ -326,8 +326,43 @@ void IOCPSession::HandleError(int32_t const errorCode)
         }
     default:
         {
-            //TODO: log - HandleError 발생, errorCode 출력
+            //TODO: log
             break;
         }
+    }
+}
+
+void IOCPSession::Send(char const* buffer, uint32_t const contentSize)
+{
+    if (_state != EIOCPSessionState::Connected)
+
+    {
+        return;
+    }
+
+    bool registerSend = false;
+
+    {
+        std::scoped_lock lock(_sendMutex);
+
+        if (_sendBuffer.GetWritableSize() < contentSize)
+        {
+            Disconnect(EDisconnectReason::SendOverflow);
+            return;
+        }
+
+        memcpy(_sendBuffer.GetWritePtr(), buffer, contentSize);
+        _sendBuffer.CommitWrite(contentSize);
+
+        if (not _isSendPending)
+        {
+            _isSendPending = true;
+            registerSend = true;
+        }
+    }
+
+    if (registerSend)
+    {
+        AsyncSend();
     }
 }
