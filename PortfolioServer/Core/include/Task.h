@@ -5,6 +5,7 @@ enum class ETaskType : uint8_t
     None = 0,
     Basic,
     DB,
+    Network,
     Max
 };
 

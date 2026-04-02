@@ -41,4 +41,5 @@
 #include "LockQueue.h"
 
 #include "Task.h"
-#include "BaseSessionManager.h"
+
+using SessionId = int64_t;

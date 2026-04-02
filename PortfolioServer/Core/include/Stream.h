@@ -3,8 +3,24 @@
 #include "StreamTypes.h"
 #include "LinearBuffer.h"
 
+enum class EDisconnectReason
+{
+    None,
+    ExplicitCall,
+    RecvZero,
+    SendZero,
+    RecvOverflow,
+    HandleError,
+    InvalidState,
+    SendOverflow,
+    InvalidOperation,
+};
+
+class IOCPSession;
+
 class Stream final
 {
+	friend class IOCPSession;
 public:
     static uint32_t constexpr MAX_SIZE = 0x10000;
 
@@ -16,7 +32,7 @@ public:
     void Reset()
     {
         _header = reinterpret_cast<StreamHeader*>(_buffer.data());
-        _header->_size = 0;
+        _header->_bodySize = 0;
 
         _writeOffset = static_cast<uint32_t>(sizeof(StreamHeader));
     }
@@ -43,7 +59,7 @@ public:
 
     uint32_t GetBodySize() const
     {
-        return _header ? _header->_size : 0;
+        return _header ? _header->_bodySize : 0;
     }
 
     uint32_t GetTotalSize() const
@@ -71,7 +87,7 @@ public:
         ::memcpy(_buffer.data() + _writeOffset, data, size);
         _writeOffset += size;
 
-        _header->_size = _writeOffset - static_cast<uint32_t>(sizeof(StreamHeader));
+        _header->_bodySize = _writeOffset - static_cast<uint32_t>(sizeof(StreamHeader));
         return true;
     }
 
@@ -92,51 +108,41 @@ public:
         return Write(value);
     }
 
-    void IncreaseBodySize(uint32_t const size)
-    {
-        if (!CanWrite(size))
-        {
-            throw std::out_of_range("Stream::IncreaseBodySize");
-        }
-
-        _header->_size += size;
-        _writeOffset += size;
-    }
-
-    static bool TryReadFromRecvBuffer(LinearBuffer& recvBuffer, Stream& outStream)
+private:
+    static std::pair<bool, std::optional<EDisconnectReason>> TryReadFromRecvBuffer(LinearBuffer& recvBuffer, Stream& outStream)
     {
         if (recvBuffer.GetReadableSize() < sizeof(StreamHeader))
         {
-            return false;
+            return { false, std::nullopt };
         }
 
         auto const* header = reinterpret_cast<StreamHeader const*>(recvBuffer.GetReadPtr());
 
-        auto const bodySize = header->_size;
+        auto const bodySize = header->_bodySize;
         if (0 == bodySize)
         {
-            return false;
+            return { false, EDisconnectReason::InvalidOperation};
         }
 
         uint32_t const totalSize = static_cast<uint32_t>(sizeof(StreamHeader)) + bodySize;
         if (MAX_SIZE < totalSize)
         {
-            return false;
+            return { false, EDisconnectReason::InvalidOperation };
         }
 
         if (recvBuffer.GetReadableSize() < totalSize)
         {
-            return false;
+            return { false, std::nullopt };
         }
 
         outStream.Reset();
         ::memcpy(outStream._buffer.data(), recvBuffer.GetReadPtr(), totalSize);
         outStream._header = reinterpret_cast<StreamHeader*>(outStream._buffer.data());
-    	outStream._writeOffset = totalSize;
+        outStream._writeOffset = totalSize;
 
         recvBuffer.CommitRead(totalSize);
 
-        return true;
+        return { true, std::nullopt };
     }
 
 private:

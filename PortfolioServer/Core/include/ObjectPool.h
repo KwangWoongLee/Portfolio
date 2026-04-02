@@ -5,7 +5,7 @@ template <typename T>
 class ObjectPool
 {
 public:
-    using Singleton = Singleton<ObjectPool<T>>;
+    using Singleton = Singleton<ObjectPool>;
 
 public:
     explicit ObjectPool(size_t const initialCapacity = 0)

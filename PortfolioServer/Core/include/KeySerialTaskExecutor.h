@@ -10,7 +10,11 @@ public:
     explicit KeySerialTaskExecutor(uint8_t const threadCount)
         : _threadCount(threadCount)
     {
-        _workers.resize(_threadCount);
+        assert(0 != threadCount);
+		for (uint8_t i{}; i < _threadCount; ++i)
+		{
+            _workers.emplace_back(std::make_unique<TaskWorkerContext>());
+		}
     }
 
     ~KeySerialTaskExecutor()
@@ -18,16 +22,16 @@ public:
         Shutdown();
     }
 
-    void Start()
+    void Start() const
     {
         for (auto i = 0; i < _threadCount; ++i)
         {
-            _workers[i]._wakeEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr); // auto-reset
-            _workers[i]._worker = std::thread([this, i]() { ThreadLoop(i); });
+            _workers[i]->_wakeEvent = ::CreateEvent(nullptr, FALSE, FALSE, nullptr); // auto-reset
+            _workers[i]->_worker = std::thread([this, i]() { ThreadLoop(i); });
         }
     }
 
-    void Reserve(std::shared_ptr<ITask> const& task)
+    void Reserve(std::shared_ptr<ITask> const& task) const
     {
         auto const key = task->GetKey();
         if (0 > key)
@@ -36,9 +40,16 @@ public:
         }
 
         auto const index = key % _threadCount;
-        _workers[index]._queue.Enqueue(task);
-        ::SetEvent(_workers[index]._wakeEvent);
+        if (not _workers[index]->_wakeEvent)
+        {
+            return;
+        }
+
+        _workers[index]->_queue.Enqueue(task);
+        ::SetEvent(_workers[index]->_wakeEvent);
     }
+
+    //TODO:: reserve all
 
     void Shutdown()
     {
@@ -47,40 +58,40 @@ public:
             return;
         }
 
-        for (auto& w : _workers)
+        for (auto const& w : _workers)
         {
-            if (w._wakeEvent)
+            if (w->_wakeEvent)
             {
-                ::SetEvent(w._wakeEvent);
+                ::SetEvent(w->_wakeEvent);
             }
         }
 
-        for (auto& w : _workers)
+        for (auto const& w : _workers)
         {
-            if (w._worker.joinable())
+            if (w->_worker.joinable())
             {
-                w._worker.join();
+                w->_worker.join();
             }
 
-            if (w._wakeEvent)
+            if (w->_wakeEvent)
             {
-                ::CloseHandle(w._wakeEvent);
-                w._wakeEvent = nullptr;
+                ::CloseHandle(w->_wakeEvent);
+                w->_wakeEvent = nullptr;
             }
         }
     }
 
 private:
-    void ThreadLoop(size_t const index)
+    void ThreadLoop(size_t const index) const
     {
-        auto& ctx = _workers[index];
+        auto const& ctx = _workers[index];
 
         while (not _stopped)
         {
-            ::WaitForSingleObject(ctx._wakeEvent, INFINITE);
+            ::WaitForSingleObject(ctx->_wakeEvent, INFINITE);
 
             std::queue<std::shared_ptr<ITask>> localQueue;
-            ctx._queue.DequeueAll(localQueue);
+            ctx->_queue.DequeueAll(localQueue);
 
             while (not localQueue.empty())
             {
@@ -100,6 +111,6 @@ private:
         std::thread _worker;
     };
 
-    std::vector<TaskWorkerContext> _workers;
+    std::vector<std::unique_ptr<TaskWorkerContext>> _workers;
     std::atomic<bool> _stopped{false};
 };

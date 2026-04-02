@@ -20,8 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\App.h" />
-    <ClInclude Include="include\BaseSession.h" />
-    <ClInclude Include="include\BaseSessionManager.h" />
     <ClInclude Include="include\Connector.h" />
     <ClInclude Include="include\CorePch.h" />
     <ClInclude Include="include\Engine.h" />
@@ -36,7 +34,7 @@
     <ClInclude Include="include\LockQueue.h" />
     <ClInclude Include="include\ObjectPool.h" />
     <ClInclude Include="include\Packet.h" />
-    <ClInclude Include="include\PacketSendTaskBase.h" />
+    <ClInclude Include="include\PacketTask.h" />
     <ClInclude Include="include\RAII.h" />
     <ClInclude Include="include\ServerEngine.h" />
     <ClInclude Include="include\Singleton.h" />
@@ -142,6 +140,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>CorePch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -160,6 +159,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>CorePch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -176,7 +176,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>CorePch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -195,6 +195,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>CorePch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>

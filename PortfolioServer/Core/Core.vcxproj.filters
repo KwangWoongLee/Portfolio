@@ -23,7 +23,7 @@
     <ClInclude Include="include\SocketUtil.h">
       <Filter>Network</Filter>
     </ClInclude>
-    <ClInclude Include="include\PacketSendTaskBase.h">
+    <ClInclude Include="include\PacketTask.h">
       <Filter>Network</Filter>
     </ClInclude>
     <ClInclude Include="include\Singleton.h">
@@ -60,12 +60,6 @@
       <Filter>Infra</Filter>
     </ClInclude>
     <ClInclude Include="include\SocketAddress.h">
-      <Filter>Network</Filter>
-    </ClInclude>
-    <ClInclude Include="include\BaseSessionManager.h">
-      <Filter>Network</Filter>
-    </ClInclude>
-    <ClInclude Include="include\BaseSession.h">
       <Filter>Network</Filter>
     </ClInclude>
     <ClInclude Include="include\Stream.h">

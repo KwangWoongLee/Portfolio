@@ -12,15 +12,15 @@ public:
 public:
     bool AddExecutor(ETaskType const taskType, uint8_t const threadCount)
     {
-        // TODO: taskType valid
-
-        if (0 >= threadCount)
+        if (0 == threadCount)
         {
             //TODO: log
             return false;
         }
 
-    	if (_executors.contains(taskType))
+        // TODO: taskType valid
+        auto const taskTypeIndex = static_cast<uint8_t>(taskType);
+    	if (_executors.at(taskTypeIndex))
     	{
             //TODO: log
             return false;
@@ -29,23 +29,23 @@ public:
         auto executor = std::make_unique<KeySerialTaskExecutor>(threadCount);
         executor->Start();
 
-        _executors.emplace(taskType, std::move(executor));
+        _executors.at(taskTypeIndex) = std::move(executor);
         return true;
     }
 
-    void Dispatch(std::shared_ptr<ITask> const& task)
+    void Dispatch(std::shared_ptr<ITask> const& task) const
     {
-        auto const iter = _executors.find(task->GetTaskType());
-        if (_executors.end() == iter)
+        auto const taskTypeIndex = static_cast<uint8_t>(task->GetTaskType());
+
+        if (not _executors.at(taskTypeIndex))
         {
             //TODO: log
             assert(false);
-            return;
         }
 
-        iter->second->Reserve(task);
+        _executors.at(taskTypeIndex)->Reserve(task);
     }
 
 private:
-    std::unordered_map<ETaskType, std::unique_ptr<KeySerialTaskExecutor>> _executors;
+    std::array<std::unique_ptr<KeySerialTaskExecutor>, TASK_TYPE_MAX> _executors;
 };

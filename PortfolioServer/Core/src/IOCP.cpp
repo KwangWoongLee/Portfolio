@@ -31,7 +31,14 @@ void IOCP::IOWorkerFunc(uint32_t const timeout) const
 		RAII _([&ioEvent]() {
 			if (ioEvent)
 			{
-				ObjectPool<Overlapped>::Singleton::GetInstance().Release(ioEvent);
+				if (auto const funcRelease = ioEvent->GetReleaseFunction())
+				{
+					funcRelease(ioEvent);
+				}
+				else
+				{
+					ObjectPool<Overlapped>::Singleton::GetInstance().Release(ioEvent);
+				}
 			}
 			});
 
@@ -46,27 +53,29 @@ void IOCP::IOWorkerFunc(uint32_t const timeout) const
 
 		if (not ioEvent)
 		{
-			return;
+			continue;
 		}
 
 		if (result)
-		{ // success
+		{
 			auto const iocpObject = ioEvent->GetIOCPObject();
 			if (not iocpObject)
 			{
-				return;
+				//TODO:: log
+				continue;
 			}
 
 			iocpObject->Dispatch(ioEvent, dwTransferred);
 		}
 		else
 		{
-			switch (auto const err = WSAGetLastError())
+			switch (GetLastError())
 			{
 			case ERROR_NETNAME_DELETED:
 			case ERROR_CONNECTION_ABORTED:
 				{
-					return;
+					//TODO:: log
+					break;
 				}
 			default:
 				{} break;
@@ -75,7 +84,8 @@ void IOCP::IOWorkerFunc(uint32_t const timeout) const
 			auto const iocpObject = ioEvent->GetIOCPObject();
 			if (not iocpObject)
 			{
-				return;
+				//TODO:: log
+				continue;
 			}
 
 			iocpObject->Dispatch(ioEvent, dwTransferred);

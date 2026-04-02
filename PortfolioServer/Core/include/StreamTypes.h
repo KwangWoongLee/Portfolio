@@ -3,7 +3,7 @@
 
 struct StreamHeader final
 {
-    uint32_t _size{};
+    uint32_t _bodySize{};
 };
 
 struct PacketHeader final
