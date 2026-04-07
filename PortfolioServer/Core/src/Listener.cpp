@@ -3,7 +3,6 @@
 #include "IOCPSessionManager.h"
 #include "SocketUtil.h"
 
-uint16_t constexpr MAX_SESSION_COUNT = 1500;
 
 Listener::Listener(uint16_t const port,
 	std::function<bool(HANDLE const)> const& funcRegisterForCompletionPort,
@@ -52,9 +51,12 @@ Listener::Listener(uint16_t const port,
 		return;
 	}
 
-	PrepareAccepts();
-
 	isSuccess = true;
+}
+
+void Listener::Start()
+{
+	PrepareAccepts();
 }
 
 void Listener::Dispatch(Overlapped const* ioEvent, uint32_t const numOfBytes)
@@ -64,11 +66,9 @@ void Listener::Dispatch(Overlapped const* ioEvent, uint32_t const numOfBytes)
 		return;
 	}
 
-	auto const a= std::dynamic_pointer_cast<OverlappedAccept*>(ioEvent);
-	if ()
+	auto const* acceptEvent = static_cast<OverlappedAccept const*>(ioEvent);
 
-	auto const iocpObject = ioEvent->GetIOCPObject();
-	auto const iocpSession = std::dynamic_pointer_cast<IOCPSession>(iocpObject);
+	auto const iocpSession = acceptEvent->GetAcceptedSession();
 	if (not iocpSession)
 	{
 		AsyncAccept();
@@ -106,7 +106,7 @@ void Listener::AsyncAccept()
 		return;
 	}
 
-	auto* const acceptIOEvent = ObjectPool<OverlappedAccept>::Singleton::GetInstance().Acquire(acceptedSession);
+	auto* const acceptIOEvent = ObjectPool<OverlappedAccept>::Singleton::GetInstance().Acquire();
 	acceptIOEvent->Init(
 		[](Overlapped* overlappedAccept)
 		{
@@ -114,9 +114,10 @@ void Listener::AsyncAccept()
 		});
 	acceptIOEvent->SetIOType(EIOType::Accept);
 	acceptIOEvent->SetIOCPObject(shared_from_this());
+	acceptIOEvent->SetAcceptedSession(acceptedSession);
 
 	DWORD bytesReceived = 0;
-	if (not fnAcceptEx(reinterpret_cast<SOCKET>(GetHandle()), reinterpret_cast<SOCKET>(acceptedSession->GetHandle()), acceptIOEvent->GetBuffer(), 0, sizeof(SOCKADDR_IN) + 16, sizeof(SOCKADDR_IN) + 16, &bytesReceived, static_cast<LPOVERLAPPED>(&(*acceptIOEvent))))
+	if (not fnAcceptEx(reinterpret_cast<SOCKET>(GetHandle()), reinterpret_cast<SOCKET>(acceptedSession->GetHandle()), acceptIOEvent->GetBuffer(), 0, sizeof(SOCKADDR_IN) + 16, sizeof(SOCKADDR_IN) + 16, &bytesReceived, static_cast<LPOVERLAPPED>(acceptIOEvent)))
 	{
 		if (WSAGetLastError() != WSA_IO_PENDING)
 		{

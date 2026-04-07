@@ -33,7 +33,7 @@ public:
 
         if (not _iocp->RegisterForCompletionPort(session->GetHandle()))
         {
-            SocketUtil::Singleton::GetInstance().CloseSocket(session->GetHandle());
+            SocketUtil::Singleton::GetInstance().CloseSocket(reinterpret_cast<SOCKET>(session->GetHandle()));
 			session->SetHandle(INVALID_HANDLE_VALUE);
 
             return nullptr;

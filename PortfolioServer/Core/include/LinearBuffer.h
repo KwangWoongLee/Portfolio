@@ -4,86 +4,27 @@
 class LinearBuffer final
 {
 public:
-    explicit LinearBuffer(uint32_t const capacity)
-        : _capacity(capacity)
-    {
-        _buffer = new uint8_t[_capacity];
-    }
+    explicit LinearBuffer(uint32_t const capacity);
+    ~LinearBuffer();
 
-    ~LinearBuffer()
-    {
-        delete[] _buffer;
-    }
+    LinearBuffer(LinearBuffer const&) = delete;
+    LinearBuffer& operator=(LinearBuffer const&) = delete;
 
-    bool EnsureWritable(uint32_t const size)
-    {
-        auto const readable = GetReadableSize();
-        if (size > _capacity - readable)
-        {
-            return false;
-        }
+    LinearBuffer(LinearBuffer&& other) noexcept;
+    LinearBuffer& operator=(LinearBuffer&& other) noexcept;
 
-        if (_capacity - _writeOffset >= size)
-        {
-            return true;
-        }
+    bool EnsureWritable(uint32_t const size);
 
-        if (0 < readable)
-        {
-            ::memmove(_buffer, _buffer + _readOffset, readable);
-        }
+    uint8_t* GetWritePtr() { return _buffer + _writeOffset; }
+    uint32_t GetWritableSize() const { return _capacity - _writeOffset; }
+    void CommitWrite(uint32_t const size) { _writeOffset += size; }
 
-        _readOffset = 0;
-        _writeOffset = readable;
-        return true;
-    }
+    uint8_t* GetReadPtr() const { return _buffer + _readOffset; }
+    uint32_t GetReadableSize() const { return _writeOffset - _readOffset; }
+    void CommitRead(uint32_t const size);
 
-    uint8_t* GetWritePtr()
-    {
-        return _buffer + _writeOffset;
-    }
-
-    uint32_t GetWritableSize() const
-    {
-        return _capacity - _writeOffset;
-    }
-
-    void CommitWrite(uint32_t const size)
-    {
-        _writeOffset += size;
-    }
-
-    uint8_t* GetReadPtr() const
-    {
-        return _buffer + _readOffset;
-    }
-
-    uint32_t GetReadableSize() const
-    {
-        return _writeOffset - _readOffset;
-    }
-
-    void CommitRead(uint32_t const size)
-    {
-        _readOffset += size;
-
-        if (_readOffset == _writeOffset)
-        {
-            _readOffset = 0;
-            _writeOffset = 0;
-        }
-    }
-
-    void Clear()
-    {
-        _readOffset = 0;
-        _writeOffset = 0;
-    }
-
-    uint32_t GetCapacity() const
-    {
-        return _capacity;
-    }
+    void Clear() { _readOffset = 0; _writeOffset = 0; }
+    uint32_t GetCapacity() const { return _capacity; }
 
 private:
     uint8_t* _buffer = nullptr;

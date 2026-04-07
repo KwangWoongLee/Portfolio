@@ -1,4 +1,19 @@
+#include "CorePch.h"
+#include "TestServerApp.h"
+
 int main()
 {
-	return 1;
+    TestServerApp app;
+
+    if (not app.Init())
+    {
+        std::cout << "[Main] Init failed" << std::endl;
+        return 1;
+    }
+
+    std::cout << "[Main] Server starting..." << std::endl;
+
+    app.Run();
+
+    return 0;
 }

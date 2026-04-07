@@ -41,17 +41,22 @@ void IOCPSession::Dispatch(Overlapped const* iocpEvent, uint32_t const numOfByte
 
 void IOCPSession::Disconnect(EDisconnectReason const reason)
 {
-    if (_state != EIOCPSessionState::Connected)
+    auto expected = EIOCPSessionState::Connected;
+    if (not _state.compare_exchange_strong(expected, EIOCPSessionState::Disconnecting))
     {
         return;
     }
-
-	_state = EIOCPSessionState::Disconnecting;
 
     AsyncDisconnect();
 }
 
 void IOCPSession::FlushPacketStream()
+{
+    std::scoped_lock lock(_sendMutex);
+    FlushPendingStreamLocked();
+}
+
+void IOCPSession::FlushPendingStreamLocked()
 {
     if (not _hasPendingStream)
     {
@@ -65,7 +70,7 @@ void IOCPSession::FlushPacketStream()
         return;
     }
 
-    Send(reinterpret_cast<char const*>(_pendingStream.GetData()), totalSize);
+    SendLocked(reinterpret_cast<char const*>(_pendingStream.GetData()), totalSize);
 
     _hasPendingStream = false;
 }
@@ -287,8 +292,6 @@ void IOCPSession::AsyncSend()
         return;
     }
 
-    std::scoped_lock lock(_sendMutex);
-
     if (0 == _sendBuffer.GetReadableSize())
     {
         return;
@@ -332,37 +335,25 @@ void IOCPSession::HandleError(int32_t const errorCode)
     }
 }
 
-void IOCPSession::Send(char const* buffer, uint32_t const contentSize)
+void IOCPSession::SendLocked(char const* buffer, uint32_t const contentSize)
 {
     if (_state != EIOCPSessionState::Connected)
-
     {
         return;
     }
 
-    bool registerSend = false;
-
+    if (_sendBuffer.GetWritableSize() < contentSize)
     {
-        std::scoped_lock lock(_sendMutex);
-
-        if (_sendBuffer.GetWritableSize() < contentSize)
-        {
-            Disconnect(EDisconnectReason::SendOverflow);
-            return;
-        }
-
-        memcpy(_sendBuffer.GetWritePtr(), buffer, contentSize);
-        _sendBuffer.CommitWrite(contentSize);
-
-        if (not _isSendPending)
-        {
-            _isSendPending = true;
-            registerSend = true;
-        }
+        Disconnect(EDisconnectReason::SendOverflow);
+        return;
     }
 
-    if (registerSend)
+    ::memcpy(_sendBuffer.GetWritePtr(), buffer, contentSize);
+    _sendBuffer.CommitWrite(contentSize);
+
+    if (not _isSendPending)
     {
+        _isSendPending = true;
         AsyncSend();
     }
 }

@@ -4,15 +4,7 @@
 class IOCP final
 {
 public:
-	explicit IOCP()
-	{
-		_completionPort = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
-
-		if (not _completionPort)
-		{
-			assert(false);
-		}
-	}
+	explicit IOCP();
 
 	bool RegisterForCompletionPort(HANDLE const handle) const;
 

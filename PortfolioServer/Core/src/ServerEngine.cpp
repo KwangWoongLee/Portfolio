@@ -4,6 +4,7 @@
 #include "IOCP.h"
 #include "IOCPSessionManager.h"
 #include "TaskDispatcher.h"
+#include "TimerManager.h"
 
 ServerEngine::ServerEngine(std::shared_ptr<IOCP> const& iocp)
 	: Engine(iocp)
@@ -17,13 +18,16 @@ bool ServerEngine::AddListener(uint16_t const port, ELinkType const linkType, st
 		return false;
 	}
 
-	_listeners.insert_or_assign(linkType
-		, std::make_shared<Listener>(port , 
-			[this](HANDLE const handle)
-			{
-				return _iocp->RegisterForCompletionPort(handle);
-			}
-			, std::move(funcCreateSession)));
+	auto listener = std::make_shared<Listener>(port,
+		[this](HANDLE const handle)
+		{
+			return _iocp->RegisterForCompletionPort(handle);
+		}
+		, std::move(funcCreateSession));
+
+	listener->Start();
+
+	_listeners.insert_or_assign(linkType, std::move(listener));
 
 	return true;
 }
@@ -33,12 +37,17 @@ void ServerEngine::Run(uint32_t const timeout)
 	auto& dispatcher = TaskDispatcher::Singleton::GetInstance();
 	dispatcher.AddExecutor(ETaskType::Basic, 4); // TODO:: config
 	dispatcher.AddExecutor(ETaskType::DB, 2); // TODO:: config
+	dispatcher.AddExecutor(ETaskType::Timer, 2); // TODO:: config
+
+	TimerManager::Singleton::GetInstance().Start();
 
 	Engine::Run(timeout);
 }
 
 void ServerEngine::Stop()
 {
+	TimerManager::Singleton::GetInstance().Stop();
+
     _listeners.clear();
 
 	Engine::Stop();

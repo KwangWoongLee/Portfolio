@@ -17,54 +17,21 @@ class Overlapped
     : public OVERLAPPED
 {
 public:
-    void Init(std::function<void(Overlapped*)>&& funcRelease = nullptr)
-    {
-        ZeroMemory(this, sizeof(OVERLAPPED));
-
-        _funcRelease = std::move(funcRelease);
-    	_ioType = EIOType::None;
-        _iocpObj = nullptr;
-    }
-
-	[[nodiscard]]
-    std::function<void(Overlapped*)> const& GetReleaseFunction() const
-    {
-        return _funcRelease;
-	}
+    void Init(std::function<void(Overlapped*)>&& funcRelease = nullptr);
 
     [[nodiscard]]
-    EIOType GetIOType() const
-    {
-        return _ioType;
-    }
-
-    void SetIOType(EIOType const ioType)
-    {
-        _ioType = ioType;
-    }
+    std::function<void(Overlapped*)> const& GetReleaseFunction() const { return _funcRelease; }
 
     [[nodiscard]]
-    std::shared_ptr<IIOCPObject> GetIOCPObject() const
-    {
-        return _iocpObj;
-    }
-
-    void SetIOCPObject(std::shared_ptr<IIOCPObject> const& iocpObj)
-    {
-        _iocpObj = iocpObj;
-    }
+    EIOType GetIOType() const { return _ioType; }
+    void SetIOType(EIOType const ioType) { _ioType = ioType; }
 
     [[nodiscard]]
-    static Overlapped* GetObjectPoolIOEvent(EIOType const ioType, std::shared_ptr<IIOCPObject> const& iocpObject)
-    {
-        auto const ioEvent = ObjectPool<Overlapped>::Singleton::GetInstance().Acquire();
+    std::shared_ptr<IIOCPObject> GetIOCPObject() const { return _iocpObj; }
+    void SetIOCPObject(std::shared_ptr<IIOCPObject> const& iocpObj) { _iocpObj = iocpObj; }
 
-        ioEvent->Init();
-        ioEvent->SetIOType(ioType);
-        ioEvent->SetIOCPObject(iocpObject);
-
-        return ioEvent;
-    }
+    [[nodiscard]]
+    static Overlapped* GetObjectPoolIOEvent(EIOType const ioType, std::shared_ptr<IIOCPObject> const& iocpObject);
 
 private:
     std::function<void(Overlapped*)> _funcRelease;

@@ -93,6 +93,12 @@ bool SocketUtil::SetExFunction()
 {
 	DWORD bytes = 0;
 	auto const tmpSocket = CreateSocket();
+	if (INVALID_SOCKET == tmpSocket)
+	{
+		return false;
+	}
+
+	RAII socketGuard([&tmpSocket]() { ::closesocket(tmpSocket); });
 
 	GUID guidAcceptEx = WSAID_ACCEPTEX;
 	if (SOCKET_ERROR == WSAIoctl(tmpSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
@@ -108,8 +114,6 @@ bool SocketUtil::SetExFunction()
 	if (SOCKET_ERROR == WSAIoctl(tmpSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
 		&guidDisconnectEx, sizeof(GUID), &fnDisconnectEx, sizeof(LPFN_DISCONNECTEX), &bytes, nullptr, nullptr))
 		return false;
-
-	::closesocket(tmpSocket);
 
 	return true;
 }
