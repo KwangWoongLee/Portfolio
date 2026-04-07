@@ -74,6 +74,8 @@
     <ClInclude Include="include\Packet.h">
       <Filter>Network</Filter>
     </ClInclude>
+    <ClInclude Include="include\TimerTask.h" />
+    <ClInclude Include="include\TimerManager.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Network">
@@ -112,5 +114,6 @@
     <ClCompile Include="src\IOCP.cpp">
       <Filter>Infra</Filter>
     </ClCompile>
+    <ClCompile Include="src\TimerManager.cpp" />
   </ItemGroup>
 </Project>

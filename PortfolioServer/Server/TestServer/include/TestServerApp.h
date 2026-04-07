@@ -1,11 +1,16 @@
 #pragma once
 #include "App.h"
+#include "ServerEngine.h"
 
-class TestServerApp :
-    public IApp
+class TestServerApp final
+    : public IApp
 {
-	bool Init() override;
+public:
+    bool Init() override;
     void Run() override;
     void Stop() override;
-};
 
+private:
+    std::shared_ptr<IOCP> _iocp;
+    std::unique_ptr<ServerEngine> _engine;
+};

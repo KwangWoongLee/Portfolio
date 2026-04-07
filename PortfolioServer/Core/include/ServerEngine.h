@@ -6,6 +6,7 @@ constexpr uint16_t MAX_SESSION_COUNT = 1500;
 
 enum class ELinkType : uint8_t
 {
+	UniverseServer,
 	WorldServer,
 	Client,
 	Max

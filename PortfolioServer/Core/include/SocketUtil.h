@@ -7,16 +7,16 @@ extern LPFN_ACCEPTEX fnAcceptEx;
 
 class SocketAddress;
 
-class SocketUtil
+class SocketUtil final
 {
 public:
     using Singleton = Singleton<SocketUtil>;
 
 public:
 	SocketUtil() = default;
-	virtual ~SocketUtil() {
+	~SocketUtil() {
 		::WSACleanup();
-	};
+	}
 
 public:
     static bool Init();

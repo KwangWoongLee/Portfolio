@@ -6,6 +6,7 @@ enum class ETaskType : uint8_t
     Basic,
     DB,
     Network,
+    Timer,
     Max
 };
 

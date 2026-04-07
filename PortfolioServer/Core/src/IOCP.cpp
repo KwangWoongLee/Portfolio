@@ -3,6 +3,16 @@
 #include "IOCPObject.h"
 #include "IOEvent.h"
 
+IOCP::IOCP()
+{
+	_completionPort = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
+
+	if (not _completionPort)
+	{
+		assert(false);
+	}
+}
+
 bool IOCP::RegisterForCompletionPort(HANDLE const handle) const
 {
     if (not CreateIoCompletionPort(handle, _completionPort, 0, 0))

@@ -44,6 +44,8 @@
     <ClInclude Include="include\StreamTypes.h" />
     <ClInclude Include="include\Task.h" />
     <ClInclude Include="include\TaskDispatcher.h" />
+    <ClInclude Include="include\TimerManager.h" />
+    <ClInclude Include="include\TimerTask.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\CorePch.cpp">
@@ -59,13 +61,20 @@
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdcpplatest</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdcpplatest</LanguageStandard>
     </ClCompile>
+    <ClCompile Include="src\Connector.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\IOCP.cpp" />
     <ClCompile Include="src\IOCPSession.cpp" />
     <ClCompile Include="src\IOCPSessionManager.cpp" />
+    <ClCompile Include="src\IOEvent.cpp" />
+    <ClCompile Include="src\KeySerialTaskExecutor.cpp" />
+    <ClCompile Include="src\LinearBuffer.cpp" />
     <ClCompile Include="src\Listener.cpp" />
     <ClCompile Include="src\ServerEngine.cpp" />
     <ClCompile Include="src\SocketUtil.cpp" />
+    <ClCompile Include="src\Stream.cpp" />
+    <ClCompile Include="src\TaskDispatcher.cpp" />
+    <ClCompile Include="src\TimerManager.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>

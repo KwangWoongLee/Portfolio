@@ -11,15 +11,22 @@ class OverlappedAccept final
     : public Overlapped
 {
 public:
-	explicit OverlappedAccept(std::shared_ptr<IOCPSession> const& acceptedSession)
-		: _acceptedSession(acceptedSession)
+    OverlappedAccept() = default;
+
+    void SetAcceptedSession(std::shared_ptr<IOCPSession> const& session)
     {
+        _acceptedSession = session;
         ZeroMemory(_acceptBuf, sizeof(_acceptBuf));
     }
 
     char* GetBuffer()
     {
         return _acceptBuf;
+    }
+
+    std::shared_ptr<IOCPSession> GetAcceptedSession() const
+    {
+        return _acceptedSession;
     }
 
 private:
@@ -63,6 +70,8 @@ public:
             return;
         }
 
+        std::scoped_lock lock(_sendMutex);
+
         if (not _hasPendingStream)
         {
             _pendingStream.Reset();
@@ -71,7 +80,7 @@ public:
 
         if (not packet.WriteToStream(_pendingStream))
         {
-            FlushPacketStream();
+            FlushPendingStreamLocked();
 
             _pendingStream.Reset();
             _hasPendingStream = true;
@@ -95,7 +104,8 @@ private:
     void AsyncSend();
     void HandleError(int32_t const errorCode);
 
-    void Send(char const* buffer, uint32_t const contentSize);
+    void SendLocked(char const* buffer, uint32_t const contentSize);
+    void FlushPendingStreamLocked();
 
     void OnConnectCompleted();
     void OnDisconnectCompleted();
@@ -107,15 +117,13 @@ private:
 private:
     SessionId _sessionId{};
 
-    char _acceptBuf[64]{};
     std::atomic<EIOCPSessionState> _state{EIOCPSessionState::None};
 
-    LinearBuffer _recvBuffer{Stream::MAX_SIZE };
-    LinearBuffer _sendBuffer{ Stream::MAX_SIZE };
-    
-	Stream _pendingStream;
+    LinearBuffer _recvBuffer{Stream::MAX_SIZE};
+    LinearBuffer _sendBuffer{Stream::MAX_SIZE};
+
+    std::mutex _sendMutex;
+    Stream _pendingStream;
     bool _hasPendingStream{};
-    
-	std::mutex _sendMutex;
     bool _isSendPending{};
 };

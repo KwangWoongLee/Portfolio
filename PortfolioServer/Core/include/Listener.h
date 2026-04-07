@@ -4,7 +4,7 @@
 
 class IOCPSession;
 
-class Listener
+class Listener final
     : public IIOCPObject
 {
 public:
@@ -15,6 +15,7 @@ public:
         std::function<bool(HANDLE const)> const& funcRegisterForCompletionPort,
         FuncCreateSession&& funcCreateSession);
 
+    void Start();
     void Dispatch(Overlapped const* iocpEvent, uint32_t numOfBytes = 0) override;
 
 private:

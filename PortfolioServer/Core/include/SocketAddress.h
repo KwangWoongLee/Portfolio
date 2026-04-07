@@ -31,7 +31,7 @@ public:
         _sockAddr.sin_port = ::htons(port);
     }
 
-    void SetFro_sockAddr(SOCKADDR const* addr)
+    void SetFromSockAddr(SOCKADDR const* addr)
     {
         ::memcpy(&_sockAddr, addr, sizeof(SOCKADDR_IN));
     }
