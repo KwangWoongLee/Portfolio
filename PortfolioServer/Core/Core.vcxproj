@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClInclude Include="include\App.h" />
     <ClInclude Include="include\Connector.h" />
+    <ClInclude Include="include\CsvParser.h" />
     <ClInclude Include="include\CorePch.h" />
     <ClInclude Include="include\Engine.h" />
     <ClInclude Include="include\IOCP.h" />
@@ -61,6 +62,7 @@
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">stdcpplatest</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdcpplatest</LanguageStandard>
     </ClCompile>
+    <ClCompile Include="src\CsvParser.cpp" />
     <ClCompile Include="src\Connector.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\IOCP.cpp" />

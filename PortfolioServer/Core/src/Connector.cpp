@@ -43,7 +43,7 @@ void Connector::AsyncConnect() const
         nullptr, 0, &numOfBytes,
         reinterpret_cast<LPOVERLAPPED>(&(*ioEvent))))
     {
-        if (WSAGetLastError() != WSA_IO_PENDING)
+        if (WSA_IO_PENDING != WSAGetLastError())
         {
             ObjectPool<Overlapped>::Singleton::GetInstance().Release(ioEvent);
             IOCPSessionManager::Singleton::GetInstance().ReleaseSession(session->GetSessionId());

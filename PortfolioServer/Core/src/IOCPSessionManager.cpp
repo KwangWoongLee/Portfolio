@@ -22,7 +22,7 @@ std::shared_ptr<IOCPSession> IOCPSessionManager::Find(SessionId const sessionId)
     std::shared_lock lock(_mutex);
 
     auto const iter = _sessions.find(sessionId);
-    if (iter == _sessions.end())
+    if (_sessions.end() == iter)
     {
         return nullptr;
     }
