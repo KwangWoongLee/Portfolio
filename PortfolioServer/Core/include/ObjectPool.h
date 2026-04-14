@@ -31,7 +31,7 @@ public:
     {
         std::scoped_lock lock(_mutex);
 
-        if (!_pool.empty())
+        if (not _pool.empty())
         {
             auto* obj = _pool.back();
             _pool.pop_back();

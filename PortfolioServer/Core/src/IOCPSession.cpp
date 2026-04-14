@@ -205,7 +205,7 @@ void IOCPSession::HandleStream(Stream& outStream)
         offset = packetBodyEnd;
     }
 
-    if (offset != totalSize)
+    if (totalSize != offset)
     {
         Disconnect(EDisconnectReason::InvalidOperation);
     }
@@ -221,7 +221,7 @@ void IOCPSession::SetConnected()
 
 void IOCPSession::SetDisconnected()
 {
-    if (_state == EIOCPSessionState::Disconnected)
+    if (EIOCPSessionState::Disconnected == _state)
     {
         return;
     }
@@ -237,7 +237,7 @@ void IOCPSession::AsyncDisconnect()
 
     if (not fnDisconnectEx(reinterpret_cast<SOCKET>(GetHandle()), disconnectIoEvent, TF_REUSE_SOCKET, 0))
     {
-        if (auto const err = WSAGetLastError(); err != WSA_IO_PENDING)
+        if (auto const err = WSAGetLastError(); WSA_IO_PENDING != err)
         {
             ObjectPool<Overlapped>::Singleton::GetInstance().Release(disconnectIoEvent);
         }
@@ -277,7 +277,7 @@ void IOCPSession::AsyncRecv()
 
     if (SOCKET_ERROR == WSARecv(reinterpret_cast<SOCKET>(GetHandle()), &wsaBuf, 1, &recvBytes, &flags, recvIoEvent, nullptr))
     {
-        if (auto const err = WSAGetLastError(); err != WSA_IO_PENDING)
+        if (auto const err = WSAGetLastError(); WSA_IO_PENDING != err)
         {
             ObjectPool<Overlapped>::Singleton::GetInstance().Release(recvIoEvent);
             HandleError(err);
@@ -307,7 +307,7 @@ void IOCPSession::AsyncSend()
     DWORD constexpr flags{};
     if (SOCKET_ERROR == WSASend(reinterpret_cast<SOCKET>(GetHandle()), &wsaBuf, 1, &sendBytes, flags, sendIoEvent, nullptr))
     {
-        if (auto const err = WSAGetLastError(); err != WSA_IO_PENDING)
+        if (auto const err = WSAGetLastError(); WSA_IO_PENDING != err)
         {
             ObjectPool<Overlapped>::Singleton::GetInstance().Release(sendIoEvent);
             HandleError(err);
@@ -337,7 +337,7 @@ void IOCPSession::HandleError(int32_t const errorCode)
 
 void IOCPSession::SendLocked(char const* buffer, uint32_t const contentSize)
 {
-    if (_state != EIOCPSessionState::Connected)
+    if (EIOCPSessionState::Connected != _state)
     {
         return;
     }
