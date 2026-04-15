@@ -30,6 +30,7 @@
     <ClInclude Include="include\IOCPSessionManager.h" />
     <ClInclude Include="include\IOEvent.h" />
     <ClInclude Include="include\KeySerialTaskExecutor.h" />
+    <ClInclude Include="include\MemoryTransaction.h" />
     <ClInclude Include="include\LinearBuffer.h" />
     <ClInclude Include="include\Listener.h" />
     <ClInclude Include="include\LockQueue.h" />
@@ -70,6 +71,7 @@
     <ClCompile Include="src\IOCPSessionManager.cpp" />
     <ClCompile Include="src\IOEvent.cpp" />
     <ClCompile Include="src\KeySerialTaskExecutor.cpp" />
+    <ClCompile Include="src\MemoryTransaction.cpp" />
     <ClCompile Include="src\LinearBuffer.cpp" />
     <ClCompile Include="src\Listener.cpp" />
     <ClCompile Include="src\ServerEngine.cpp" />
