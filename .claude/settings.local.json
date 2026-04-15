@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(mv /c/workspace/Portfolio_/PortfolioServer/Server/WorldServer/include/WorldSession.h /c/workspace/Portfolio_/PortfolioServer/Server/WorldServer/include/ClientSession.h)",
+      "Bash(mv /c/workspace/Portfolio_/PortfolioServer/Server/WorldServer/src/WorldSession.cpp /c/workspace/Portfolio_/PortfolioServer/Server/WorldServer/src/ClientSession.cpp)"
+    ]
+  }
+}
