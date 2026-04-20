@@ -35,7 +35,8 @@ bool ServerEngine::AddListener(uint16_t const port, ELinkType const linkType, st
 void ServerEngine::Run(uint32_t const timeout)
 {
 	auto& dispatcher = TaskDispatcher::Singleton::GetInstance();
-	dispatcher.AddExecutor(ETaskType::Basic, 4); // TODO:: config
+	dispatcher.AddExecutor(ETaskType::GameLogic, 4); // TODO:: config
+	dispatcher.AddExecutor(ETaskType::NetworkIO, 2); // TODO:: config
 	dispatcher.AddExecutor(ETaskType::DB, 2); // TODO:: config
 	dispatcher.AddExecutor(ETaskType::Timer, 2); // TODO:: config
 

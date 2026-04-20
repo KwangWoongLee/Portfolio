@@ -1,22 +1,10 @@
 #pragma once
-#include <cstdint>
-#include <functional>
+#include "CorePch.h"
 
-template <typename Tag>
-struct StrongId final
-{
-    int32_t _value{};
+struct SiegeWarTag {};
+using SiegeWarType = StrongId<SiegeWarTag>;
+using SiegeWarTypeHash = StrongIdHash<SiegeWarTag>;
 
-    bool operator==(StrongId const&) const = default;
-    bool operator<(StrongId const& other) const { return _value < other._value; }
-};
-
-template <typename Tag>
-struct StrongIdHash final
-{
-    size_t operator()(StrongId<Tag> const& id) const
-    {
-        return std::hash<int32_t>{}(id._value);
-    }
-};
-
+struct SiegeScheduleTag {};
+using SiegeScheduleType = StrongId<SiegeScheduleTag>;
+using SiegeScheduleTypeHash = StrongIdHash<SiegeScheduleTag>;

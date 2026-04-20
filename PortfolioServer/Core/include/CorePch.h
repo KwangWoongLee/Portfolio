@@ -34,11 +34,12 @@
 
 #include "RAII.h"
 #include "Singleton.h"
+#include "StrongId.h"
 
 #include "ObjectPool.h"
 #include "LockQueue.h"
 
 #include "Task.h"
 
-using SessionId = int64_t;
+using SessionId = StrongId<struct SessionIdTag, int64_t>;
 using TimerId = uint64_t;

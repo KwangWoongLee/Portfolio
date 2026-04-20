@@ -62,7 +62,7 @@ bool CmsManager::LoadSiegeWar(std::string const& dataPath)
     for (auto const& row : csv.GetRows())
     {
         SiegeWarData data;
-        data._type._value = row.GetInt32(0);
+        data._type = SiegeWarType{ row.GetInt32(0) };
         data._name = row.GetString(1);
         data._prepDurationSec = row.GetInt32(2);
         data._attackDurationSec = row.GetInt32(3);
@@ -87,8 +87,8 @@ bool CmsManager::LoadSiegeSchedule(std::string const& dataPath)
     for (auto const& row : csv.GetRows())
     {
         SiegeScheduleData data;
-        data._type._value = row.GetInt32(0);
-        data._siegeWarType._value = row.GetInt32(1);
+        data._type = SiegeScheduleType{ row.GetInt32(0) };
+        data._siegeWarType = SiegeWarType{ row.GetInt32(1) };
         data._dayOfWeek = row.GetInt32(2);
         data._startHour = row.GetInt32(3);
         data._startMinute = row.GetInt32(4);
