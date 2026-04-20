@@ -10,7 +10,7 @@ class PacketSendTask final
 {
 public:
     PacketSendTask(SessionId const sessionId, T_PACKET&& packet)
-        : ITask(ETaskType::Network, static_cast<int64_t>(sessionId))
+        : ITask(ETaskType::NetworkIO, sessionId)
         , _sessionId(sessionId)
         , _packet(std::forward<T_PACKET>(packet))
     {
@@ -38,7 +38,7 @@ class PacketRecvTask final
 {
 public:
     PacketRecvTask(SessionId const sessionId, uint16_t const packetId, std::vector<uint8_t> payload)
-        : ITask(ETaskType::Basic, static_cast<int64_t>(sessionId))
+        : ITask(ETaskType::NetworkIO, sessionId)
         , _sessionId(sessionId)
         , _packetId(packetId)
         , _payload(std::move(payload))

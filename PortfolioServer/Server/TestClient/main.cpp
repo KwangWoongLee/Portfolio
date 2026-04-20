@@ -15,8 +15,7 @@ int main()
     IOCPSessionManager::Singleton::GetInstance().Init(iocp);
 
     auto& dispatcher = TaskDispatcher::Singleton::GetInstance();
-    dispatcher.AddExecutor(ETaskType::Basic, 2);
-    dispatcher.AddExecutor(ETaskType::Network, 1);
+    dispatcher.AddExecutor(ETaskType::NetworkIO, 1);
     dispatcher.AddExecutor(ETaskType::Timer, 1);
 
     TimerManager::Singleton::GetInstance().Start();

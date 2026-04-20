@@ -41,6 +41,7 @@
     <ClInclude Include="include\ServerEngine.h" />
     <ClInclude Include="include\Singleton.h" />
     <ClInclude Include="include\SocketAddress.h" />
+    <ClInclude Include="include\StrongId.h" />
     <ClInclude Include="include\SocketUtil.h" />
     <ClInclude Include="include\Stream.h" />
     <ClInclude Include="include\StreamTypes.h" />

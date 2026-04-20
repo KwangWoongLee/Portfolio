@@ -42,7 +42,7 @@ public:
         {
             std::unique_lock lock(_mutex);
 
-            auto const newId = _nextSessionId++;
+            auto const newId = SessionId{ _nextSessionIdValue++ };
             session->SetSessionId(newId);
             if (auto const [_, isSuccess] = _sessions.try_emplace(newId, session); not isSuccess)
             {
@@ -54,8 +54,8 @@ public:
         return session;
     }
 
-    template <typename Fn>
-    void ForEach(Fn const& fn) const
+    template <typename T_FUNC>
+    void ForEach(T_FUNC const& fn) const
     {
         std::unique_lock lock(_mutex);
         for (auto const& [id, session] : _sessions)
@@ -67,7 +67,7 @@ public:
 private:
     mutable std::shared_mutex _mutex;
 
-    SessionId _nextSessionId{ 1 };
+    int64_t _nextSessionIdValue{ 1 };
     std::unordered_map<SessionId, std::shared_ptr<IOCPSession>> _sessions;
 
     std::shared_ptr<IOCP> _iocp;

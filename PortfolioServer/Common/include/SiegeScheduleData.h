@@ -1,10 +1,6 @@
 #pragma once
 #include "CmsTypes.h"
 
-struct SiegeScheduleTag {};
-using SiegeScheduleType = StrongId<SiegeScheduleTag>;
-using SiegeScheduleTypeHash = StrongIdHash<SiegeScheduleTag>;
-
 struct SiegeScheduleData final
 {
     SiegeScheduleType _type;

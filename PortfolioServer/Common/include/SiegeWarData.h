@@ -2,10 +2,6 @@
 #include "CmsTypes.h"
 #include <string>
 
-struct SiegeWarTag {};
-using SiegeWarType = StrongId<SiegeWarTag>;
-using SiegeWarTypeHash = StrongIdHash<SiegeWarTag>;
-
 struct SiegeWarData final
 {
     SiegeWarType _type;
