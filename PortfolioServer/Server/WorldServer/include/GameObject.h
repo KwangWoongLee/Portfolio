@@ -1,22 +1,19 @@
 #pragma once
+#include "Actor.h"
 #include "WorldTypes.h"
 
 class GameObject
+    : public Actor
 {
 public:
-    explicit GameObject(EntityId const entityId)
-        : _entityId(entityId)
+    explicit GameObject(ActorId const actorId)
+        : Actor(actorId)
     {
     }
-
-    virtual ~GameObject() = default;
-
-    EntityId GetEntityId() const { return _entityId; }
 
     Position const& GetPosition() const { return _position; }
     void SetPosition(Position const& pos) { _position = pos; }
 
 protected:
-    EntityId _entityId{};
     Position _position{};
 };

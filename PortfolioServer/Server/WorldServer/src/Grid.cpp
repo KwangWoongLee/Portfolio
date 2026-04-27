@@ -9,19 +9,19 @@ Grid::CellIndex Grid::GetCellIndex(Position const& pos) const
     };
 }
 
-void Grid::Add(EntityId const entityId, Position const& pos)
+void Grid::Add(ActorId const actorId, Position const& pos)
 {
     auto& cell = GetOrCreateCell(GetCellIndex(pos));
-    cell.insert(entityId);
+    cell.insert(actorId);
 }
 
-void Grid::Remove(EntityId const entityId, Position const& pos)
+void Grid::Remove(ActorId const actorId, Position const& pos)
 {
     auto const idx = GetCellIndex(pos);
     auto const iter = _cells.find(idx);
     if (_cells.end() != iter)
     {
-        iter->second.erase(entityId);
+        iter->second.erase(actorId);
 
         if (iter->second.empty())
         {
@@ -30,7 +30,7 @@ void Grid::Remove(EntityId const entityId, Position const& pos)
     }
 }
 
-void Grid::Move(EntityId const entityId, Position const& oldPos, Position const& newPos)
+void Grid::Move(ActorId const actorId, Position const& oldPos, Position const& newPos)
 {
     auto const oldIdx = GetCellIndex(oldPos);
     auto const newIdx = GetCellIndex(newPos);
@@ -40,11 +40,11 @@ void Grid::Move(EntityId const entityId, Position const& oldPos, Position const&
         return;
     }
 
-    Remove(entityId, oldPos);
-    Add(entityId, newPos);
+    Remove(actorId, oldPos);
+    Add(actorId, newPos);
 }
 
-void Grid::GetNearbyEntityIds(Position const& center, std::vector<EntityId>& outEntityIds) const
+void Grid::GetNearbyActorIds(Position const& center, std::vector<ActorId>& outActorIds) const
 {
     auto const centerIdx = GetCellIndex(center);
 
@@ -56,9 +56,9 @@ void Grid::GetNearbyEntityIds(Position const& center, std::vector<EntityId>& out
 
             if (auto const* cell = GetCell(neighborIdx))
             {
-                for (auto const entityId : *cell)
+                for (auto const actorId : *cell)
                 {
-                    outEntityIds.push_back(entityId);
+                    outActorIds.push_back(actorId);
                 }
             }
         }

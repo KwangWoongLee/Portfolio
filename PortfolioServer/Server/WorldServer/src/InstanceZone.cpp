@@ -6,9 +6,9 @@ void InstanceZone::Update()
     // TODO: 던전 로직, 몬스터 AI, 클리어 조건 체크 등
 }
 
-void InstanceZone::Leave(EntityId const entityId)
+void InstanceZone::Leave(ActorId const actorId)
 {
-    IZone::Leave(entityId);
+    IZone::Leave(actorId);
 
     if (IsEmpty())
     {

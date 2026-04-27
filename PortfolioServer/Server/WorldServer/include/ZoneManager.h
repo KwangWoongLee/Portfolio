@@ -3,6 +3,8 @@
 #include "IZone.h"
 #include "InstanceZone.h"
 
+class Player;
+
 class ZoneManager final
 {
 public:
@@ -15,8 +17,8 @@ public:
     std::shared_ptr<IZone> FindZone(ZoneId const zoneId) const;
     std::shared_ptr<InstanceZone> FindInstanceDungeon(InstanceId const instanceId) const;
 
-    bool MovePlayer(std::shared_ptr<ClientSession> const& session, ZoneId const toZoneId);
-    bool EnterInstanceDungeon(std::shared_ptr<ClientSession> const& session, InstanceId const instanceId);
+    bool MovePlayer(std::shared_ptr<Player> const& player, ZoneId const toZoneId);
+    bool EnterInstanceDungeon(std::shared_ptr<Player> const& player, InstanceId const instanceId);
 
     void CleanupEmptyInstances();
 

@@ -1,7 +1,7 @@
 #pragma once
 #include "CorePch.h"
 #include "IOCPSession.h"
-#include "WorldTypes.h"
+#include "Actor.h"
 
 class ClientSession final
     : public IOCPSession
@@ -9,20 +9,12 @@ class ClientSession final
 public:
     void HandlePacket(uint16_t const packetId, void const* const payload, uint32_t const size) override;
 
-    EntityId GetEntityId() const { return _entityId; }
-    void SetEntityId(EntityId const entityId) { _entityId = entityId; }
-
-    ZoneId GetCurrentZoneId() const { return _currentZoneId; }
-    void SetCurrentZoneId(ZoneId const zoneId) { _currentZoneId = zoneId; }
-
-    Position const& GetPosition() const { return _position; }
-    void SetPosition(Position const& pos) { _position = pos; }
+    ActorId GetActorId() const { return _actorId; }
+    void SetActorId(ActorId const actorId) { _actorId = actorId; }
 
 private:
     void OnConnected() override;
     void OnDisconnected() override;
 
-    EntityId _entityId{ INVALID_ENTITY_ID };
-    ZoneId _currentZoneId{ INVALID_ZONE_ID };
-    Position _position{};
+    ActorId _actorId{ INVALID_ACTOR_ID };
 };
