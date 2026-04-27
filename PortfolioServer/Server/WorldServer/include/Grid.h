@@ -23,7 +23,7 @@ public:
         }
     };
 
-    using Cell = std::unordered_set<EntityId>;
+    using Cell = std::unordered_set<ActorId>;
 
     explicit Grid(float const cellSize = 100.0f)
         : _cellSize(cellSize)
@@ -32,11 +32,11 @@ public:
 
     CellIndex GetCellIndex(Position const& pos) const;
 
-    void Add(EntityId const entityId, Position const& pos);
-    void Remove(EntityId const entityId, Position const& pos);
-    void Move(EntityId const entityId, Position const& oldPos, Position const& newPos);
+    void Add(ActorId const entityId, Position const& pos);
+    void Remove(ActorId const entityId, Position const& pos);
+    void Move(ActorId const entityId, Position const& oldPos, Position const& newPos);
 
-    void GetNearbyEntityIds(Position const& center, std::vector<EntityId>& outEntityIds) const;
+    void GetNearbyActorIds(Position const& center, std::vector<ActorId>& outActorIds) const;
 
 private:
     Cell& GetOrCreateCell(CellIndex const& idx);

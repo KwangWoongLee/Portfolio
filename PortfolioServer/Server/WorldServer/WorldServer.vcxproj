@@ -79,6 +79,10 @@
     <ClInclude Include="include\FieldZone.h" />
     <ClInclude Include="include\InstanceZone.h" />
     <ClInclude Include="include\IZone.h" />
+    <ClInclude Include="include\Player.h" />
+    <ClInclude Include="include\PlayerManager.h" />
+    <ClInclude Include="include\PlayerMessages.h" />
+    <ClInclude Include="include\PlayerPost.h" />
     <ClInclude Include="include\WorldServerApp.h" />
     <ClInclude Include="include\ClientSession.h" />
     <ClInclude Include="include\WorldTypes.h" />
@@ -90,6 +94,8 @@
     <ClCompile Include="src\FieldZone.cpp" />
     <ClCompile Include="src\InstanceZone.cpp" />
     <ClCompile Include="src\IZone.cpp" />
+    <ClCompile Include="src\Player.cpp" />
+    <ClCompile Include="src\PlayerManager.cpp" />
     <ClCompile Include="src\WorldServerApp.cpp" />
     <ClCompile Include="src\ClientSession.cpp" />
     <ClCompile Include="src\ZoneManager.cpp" />

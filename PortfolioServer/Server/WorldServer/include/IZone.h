@@ -4,8 +4,7 @@
 #include "WorldTypes.h"
 #include "Grid.h"
 
-class ClientSession;
-class GameObject;
+class Player;
 
 enum class EZoneType : uint8_t
 {
@@ -29,20 +28,20 @@ public:
 
     virtual void Update() = 0;
 
-    virtual bool Enter(std::shared_ptr<ClientSession> const& session);
-    virtual void Leave(EntityId const entityId);
+    virtual bool Enter(std::shared_ptr<Player> const& player);
+    virtual void Leave(ActorId const actorId);
 
-    void OnEntityMove(EntityId const entityId, Position const& oldPos, Position const& newPos);
+    void OnActorMove(ActorId const actorId, Position const& oldPos, Position const& newPos);
 
     void Broadcast(Packet const& packet);
-    void BroadcastInSight(Position const& center, Packet const& packet, EntityId const excludeEntityId = INVALID_ENTITY_ID);
+    void BroadcastInSight(Position const& center, Packet const& packet, ActorId const excludeActorId = INVALID_ACTOR_ID);
 
 protected:
-    std::shared_ptr<ClientSession> FindPlayer(EntityId const entityId) const;
+    std::shared_ptr<Player> FindPlayer(ActorId const actorId) const;
 
     ZoneId _zoneId{};
     EZoneType _zoneType{};
 
     Grid _grid;
-    std::unordered_map<EntityId, std::shared_ptr<ClientSession>> _players;
+    std::unordered_map<ActorId, std::shared_ptr<Player>> _players;
 };

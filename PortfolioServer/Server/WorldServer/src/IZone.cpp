@@ -1,77 +1,86 @@
 #include "CorePch.h"
 #include "IZone.h"
-#include "ClientSession.h"
+#include "Player.h"
 
-bool IZone::Enter(std::shared_ptr<ClientSession> const& session)
+bool IZone::Enter(std::shared_ptr<Player> const& player)
 {
-    auto const entityId = session->GetEntityId();
+    auto const actorId = player->GetActorId();
 
-    if (_players.contains(entityId))
+    if (_players.contains(actorId))
     {
         return false;
     }
 
-    _players.emplace(entityId, session);
-    session->SetCurrentZoneId(_zoneId);
+    _players.emplace(actorId, player);
+    player->SetCurrentZoneId(_zoneId);
 
-    _grid.Add(entityId, session->GetPosition());
+    _grid.Add(actorId, player->GetPosition());
 
-    std::cout << "[Zone:" << _zoneId << "] Player entity=" << entityId
+    std::cout << "[Zone:" << _zoneId << "] Player actor=" << actorId
         << " entered (count=" << _players.size() << ")" << std::endl;
 
     return true;
 }
 
-void IZone::Leave(EntityId const entityId)
+void IZone::Leave(ActorId const actorId)
 {
-    auto const iter = _players.find(entityId);
+    auto const iter = _players.find(actorId);
     if (_players.end() == iter)
     {
         return;
     }
 
-    _grid.Remove(entityId, iter->second->GetPosition());
+    _grid.Remove(actorId, iter->second->GetPosition());
     _players.erase(iter);
 
-    std::cout << "[Zone:" << _zoneId << "] Entity=" << entityId
+    std::cout << "[Zone:" << _zoneId << "] Actor=" << actorId
         << " left (count=" << _players.size() << ")" << std::endl;
 }
 
-void IZone::OnEntityMove(EntityId const entityId, Position const& oldPos, Position const& newPos)
+void IZone::OnActorMove(ActorId const actorId, Position const& oldPos, Position const& newPos)
 {
-    _grid.Move(entityId, oldPos, newPos);
+    _grid.Move(actorId, oldPos, newPos);
 }
 
 void IZone::Broadcast(Packet const& packet)
 {
-    for (auto const& [id, session] : _players)
+    for (auto const& [id, player] : _players)
     {
-        session->SendPacket(packet);
+        if (auto const session = player->GetSession())
+        {
+            session->SendPacket(packet);
+        }
     }
 }
 
-void IZone::BroadcastInSight(Position const& center, Packet const& packet, EntityId const excludeEntityId)
+void IZone::BroadcastInSight(Position const& center, Packet const& packet, ActorId const excludeActorId)
 {
-    std::vector<EntityId> nearbyIds;
-    _grid.GetNearbyEntityIds(center, nearbyIds);
+    std::vector<ActorId> nearbyIds;
+    _grid.GetNearbyActorIds(center, nearbyIds);
 
-    for (auto const entityId : nearbyIds)
+    for (auto const actorId : nearbyIds)
     {
-        if (excludeEntityId == entityId)
+        if (excludeActorId == actorId)
         {
             continue;
         }
 
-        if (auto const iter = _players.find(entityId); _players.end() != iter)
+        auto const iter = _players.find(actorId);
+        if (_players.end() == iter)
         {
-            iter->second->SendPacket(packet);
+            continue;
+        }
+
+        if (auto const session = iter->second->GetSession())
+        {
+            session->SendPacket(packet);
         }
     }
 }
 
-std::shared_ptr<ClientSession> IZone::FindPlayer(EntityId const entityId) const
+std::shared_ptr<Player> IZone::FindPlayer(ActorId const actorId) const
 {
-    auto const iter = _players.find(entityId);
+    auto const iter = _players.find(actorId);
     if (_players.end() == iter)
     {
         return nullptr;

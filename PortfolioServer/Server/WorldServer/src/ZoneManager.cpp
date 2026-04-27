@@ -2,7 +2,7 @@
 #include "ZoneManager.h"
 #include "FieldZone.h"
 #include "InstanceZone.h"
-#include "ClientSession.h"
+#include "Player.h"
 #include "TimerManager.h"
 
 void ZoneManager::CreateField(ZoneId const zoneId)
@@ -79,7 +79,7 @@ std::shared_ptr<InstanceZone> ZoneManager::FindInstanceDungeon(InstanceId const 
     return iter->second;
 }
 
-bool ZoneManager::MovePlayer(std::shared_ptr<ClientSession> const& session, ZoneId const toZoneId)
+bool ZoneManager::MovePlayer(std::shared_ptr<Player> const& player, ZoneId const toZoneId)
 {
     auto const toZone = FindZone(toZoneId);
     if (not toZone)
@@ -87,19 +87,19 @@ bool ZoneManager::MovePlayer(std::shared_ptr<ClientSession> const& session, Zone
         return false;
     }
 
-    auto const fromZoneId = session->GetCurrentZoneId();
+    auto const fromZoneId = player->GetCurrentZoneId();
     if (INVALID_ZONE_ID != fromZoneId)
     {
         if (auto const fromZone = FindZone(fromZoneId))
         {
-            fromZone->Leave(session->GetEntityId());
+            fromZone->Leave(player->GetActorId());
         }
     }
 
-    return toZone->Enter(session);
+    return toZone->Enter(player);
 }
 
-bool ZoneManager::EnterInstanceDungeon(std::shared_ptr<ClientSession> const& session, InstanceId const instanceId)
+bool ZoneManager::EnterInstanceDungeon(std::shared_ptr<Player> const& player, InstanceId const instanceId)
 {
     auto const instance = FindInstanceDungeon(instanceId);
     if (not instance)
@@ -107,7 +107,7 @@ bool ZoneManager::EnterInstanceDungeon(std::shared_ptr<ClientSession> const& ses
         return false;
     }
 
-    return MovePlayer(session, instance->GetZoneId());
+    return MovePlayer(player, instance->GetZoneId());
 }
 
 void ZoneManager::CleanupEmptyInstances()

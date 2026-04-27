@@ -17,7 +17,7 @@ public:
     bool IsEmpty() const { return _players.empty(); }
 
     void Update() override;
-    void Leave(EntityId const entityId) override;
+    void Leave(ActorId const entityId) override;
 
 private:
     InstanceId _instanceId{};
