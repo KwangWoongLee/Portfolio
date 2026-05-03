@@ -1,17 +1,28 @@
 #include "CorePch.h"
 #include "Stream.h"
 
-bool Stream::WriteBytes(void const* data, uint32_t const size)
+bool StreamWriter::WriteBytes(void const* data, uint32_t const size)
 {
-    if (not CanWrite(size))
+    if (Stream::MAX_SIZE - _stream._writeOffset < size)
     {
         return false;
     }
 
-    ::memcpy(_buffer.data() + _writeOffset, data, size);
-    _writeOffset += size;
+    ::memcpy(_stream._buffer.data() + _stream._writeOffset, data, size);
+    _stream._writeOffset += size;
+    _stream._header->_bodySize = _stream._writeOffset - static_cast<uint32_t>(sizeof(StreamHeader));
+    return true;
+}
 
-    _header->_bodySize = _writeOffset - static_cast<uint32_t>(sizeof(StreamHeader));
+bool StreamReader::ReadBytes(void* const outData, uint32_t const size)
+{
+    if (not CanRead(size))
+    {
+        return false;
+    }
+
+    ::memcpy(outData, _data + _readOffset, size);
+    _readOffset += size;
     return true;
 }
 

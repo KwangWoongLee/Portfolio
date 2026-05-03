@@ -164,9 +164,9 @@ void IOCPSession::OnSendCompleted(uint32_t const transferred)
 	}
 }
 
-void IOCPSession::HandleStream(Stream& outStream)
+void IOCPSession::HandleStream(Stream& stream)
 {
-    auto const* data = outStream.GetData();
+    auto const* data = stream.GetData();
 
     auto const* streamHeader = reinterpret_cast<StreamHeader const*>(data);
     auto const totalSize = static_cast<uint32_t>(sizeof(StreamHeader)) + streamHeader->_bodySize;

@@ -8,7 +8,7 @@ public:
     virtual ~Packet() = default;
 
     virtual uint16_t GetId() const = 0;
-    virtual bool WriteToStream(Stream& stream) const = 0;
+    virtual bool WriteToStream(StreamWriter& writer) const = 0;
 };
 
 #define MAKABLE_STREAM(ID, ...)                                       \
@@ -18,7 +18,20 @@ public:                                                               \
     {                                                                 \
         return PACKET_ID;                                             \
     }                                                                 \
-    bool WriteToStream(Stream& stream) const override                 \
+    bool WriteToStream(StreamWriter& writer) const override           \
     {                                                                 \
-        return Stream::WritePacket(stream, PACKET_ID, __VA_ARGS__);   \
+        return StreamWriter::WritePacket(writer, PACKET_ID, __VA_ARGS__); \
+    }
+
+#define READABLE_STREAM(ID, ...)                                      \
+public:                                                               \
+    static uint16_t constexpr PACKET_ID = ID;                         \
+    bool ReadFromStream(StreamReader& reader)                         \
+    {                                                                 \
+        return reader.ReadFields(__VA_ARGS__);                        \
+    }                                                                 \
+    bool ReadFromBytes(void const* const data, uint32_t const size)   \
+    {                                                                 \
+        StreamReader reader(data, size);                              \
+        return ReadFromStream(reader);                                \
     }

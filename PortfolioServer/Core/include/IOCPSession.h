@@ -78,14 +78,16 @@ public:
             _hasPendingStream = true;
         }
 
-        if (not packet.WriteToStream(_pendingStream))
+        StreamWriter writer(_pendingStream);
+
+        if (not packet.WriteToStream(writer))
         {
             FlushPendingStreamLocked();
 
             _pendingStream.Reset();
             _hasPendingStream = true;
 
-            if (not packet.WriteToStream(_pendingStream))
+            if (not packet.WriteToStream(writer))
             {
                 Disconnect(EDisconnectReason::SendOverflow);
                 return;
@@ -112,7 +114,7 @@ private:
     void OnRecvCompleted(uint32_t const transferred);
     void OnSendCompleted(uint32_t const transferred);
 
-    void HandleStream(Stream& outStream);
+    void HandleStream(Stream& stream);
 
 private:
     SessionId _sessionId{};

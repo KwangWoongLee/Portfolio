@@ -50,15 +50,6 @@
     <ClInclude Include="include\Listener.h">
       <Filter>Network</Filter>
     </ClInclude>
-    <ClInclude Include="include\IOCP.h">
-      <Filter>Infra</Filter>
-    </ClInclude>
-    <ClInclude Include="include\IOEvent.h">
-      <Filter>Infra</Filter>
-    </ClInclude>
-    <ClInclude Include="include\IOCPObject.h">
-      <Filter>Infra</Filter>
-    </ClInclude>
     <ClInclude Include="include\SocketAddress.h">
       <Filter>Network</Filter>
     </ClInclude>
@@ -74,8 +65,30 @@
     <ClInclude Include="include\Packet.h">
       <Filter>Network</Filter>
     </ClInclude>
-    <ClInclude Include="include\TimerTask.h" />
-    <ClInclude Include="include\TimerManager.h" />
+    <ClInclude Include="include\TimerTask.h">
+      <Filter>Infra</Filter>
+    </ClInclude>
+    <ClInclude Include="include\TimerManager.h">
+      <Filter>Infra</Filter>
+    </ClInclude>
+    <ClInclude Include="include\IOEvent.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="include\IOCP.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="include\IOCPObject.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="include\MemoryTransaction.h">
+      <Filter>Infra</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CsvParser.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="include\StrongId.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Network">
@@ -111,9 +124,35 @@
     <ClCompile Include="src\Listener.cpp">
       <Filter>Network</Filter>
     </ClCompile>
-    <ClCompile Include="src\IOCP.cpp">
+    <ClCompile Include="src\IOEvent.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Connector.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="src\KeySerialTaskExecutor.cpp">
       <Filter>Infra</Filter>
     </ClCompile>
-    <ClCompile Include="src\TimerManager.cpp" />
+    <ClCompile Include="src\TaskDispatcher.cpp">
+      <Filter>Infra</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TimerManager.cpp">
+      <Filter>Infra</Filter>
+    </ClCompile>
+    <ClCompile Include="src\LinearBuffer.cpp">
+      <Filter>Infra</Filter>
+    </ClCompile>
+    <ClCompile Include="src\IOCP.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MemoryTransaction.cpp">
+      <Filter>Infra</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Stream.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="src\CsvParser.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
