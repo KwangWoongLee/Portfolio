@@ -6,6 +6,7 @@
 #include "LinearBuffer.h"
 #include "Stream.h"
 
+class IOCPSession;
 
 class OverlappedAccept final
     : public Overlapped

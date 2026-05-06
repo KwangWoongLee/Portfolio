@@ -6,6 +6,17 @@
 // 새 메시지 추가 시 Player::OnMessage 오버로드도 함께 추가할 것.
 namespace PlayerMsg
 {
+    struct MoveRequest
+    {
+        float _x{};
+        float _z{};
+    };
+
+    struct AttackRequest
+    {
+        ActorId _targetActorId;
+    };
+
     struct Attacked
     {
         ActorId _attackerId;

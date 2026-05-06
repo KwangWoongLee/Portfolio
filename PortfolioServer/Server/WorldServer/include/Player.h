@@ -26,6 +26,8 @@ public:
 
     void OnPacket(uint16_t const packetId, std::vector<uint8_t> const& payload);
 
+    void OnMessage(PlayerMsg::MoveRequest const& msg);
+    void OnMessage(PlayerMsg::AttackRequest const& msg);
     void OnMessage(PlayerMsg::Attacked const& msg);
     void OnMessage(PlayerMsg::Healed const& msg);
 

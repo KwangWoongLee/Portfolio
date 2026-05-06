@@ -1,12 +1,53 @@
 #include "CorePch.h"
 #include "Player.h"
+#include "PlayerPost.h"
+#include "ZoneManager.h"
+#include "WorldPackets.h"
+
+namespace
+{
+    auto constexpr DEFAULT_ATTACK_DAMAGE = 25;
+}
 
 void Player::OnPacket(uint16_t const packetId, std::vector<uint8_t> const& payload)
 {
     std::cout << "[Player:" << GetActorId() << "] OnPacket id=" << packetId
         << " size=" << payload.size() << std::endl;
+}
 
-    // TODO: 패킷 ID별로 deserialize → 해당 PlayerMsg 생성 → SendToPlayer 또는 OnMessage 직접 호출
+void Player::OnMessage(PlayerMsg::MoveRequest const& msg)
+{
+    if (IsDead())
+    {
+        return;
+    }
+
+    auto const oldPos = _position;
+    _position = { msg._x, msg._z };
+
+    auto const zone = ZoneManager::Singleton::GetInstance().FindZone(_currentZoneId);
+    if (not zone)
+    {
+        return;
+    }
+
+    zone->OnActorMove(GetActorId(), oldPos, _position);
+
+    W2CMoveBroadcast packet;
+    packet._actorId = GetActorId();
+    packet._x = _position._x;
+    packet._z = _position._z;
+    zone->BroadcastInSight(_position, packet, GetActorId());
+}
+
+void Player::OnMessage(PlayerMsg::AttackRequest const& msg)
+{
+    if (IsDead())
+    {
+        return;
+    }
+
+    SendToPlayer(msg._targetActorId, PlayerMsg::Attacked{ GetActorId(), DEFAULT_ATTACK_DAMAGE });
 }
 
 void Player::OnMessage(PlayerMsg::Attacked const& msg)
@@ -18,13 +59,23 @@ void Player::OnMessage(PlayerMsg::Attacked const& msg)
 
     _hp -= msg._damage;
 
-    std::cout << "[Player:" << GetActorId() << "] Attacked by " << msg._attackerId
-        << " dmg=" << msg._damage << " hp=" << _hp << std::endl;
+    auto const zone = ZoneManager::Singleton::GetInstance().FindZone(_currentZoneId);
+    if (zone)
+    {
+        W2CHpUpdate hpPacket;
+        hpPacket._actorId = GetActorId();
+        hpPacket._hp = _hp;
+        zone->BroadcastInSight(_position, hpPacket);
+    }
 
     if (IsDead())
     {
-        std::cout << "[Player:" << GetActorId() << "] DIED" << std::endl;
-        // TODO: 사망 처리 (Zone broadcast, 부활 타이머 등)
+        if (zone)
+        {
+            W2CDeath deathPacket;
+            deathPacket._actorId = GetActorId();
+            zone->BroadcastInSight(_position, deathPacket);
+        }
     }
 }
 
@@ -35,8 +86,18 @@ void Player::OnMessage(PlayerMsg::Healed const& msg)
         return;
     }
 
-    _hp = std::min(_hp + msg._amount, MAX_HP);
+    _hp += msg._amount;
+    if (MAX_HP < _hp)
+    {
+        _hp = MAX_HP;
+    }
 
-    std::cout << "[Player:" << GetActorId() << "] Healed by " << msg._healerId
-        << " amount=" << msg._amount << " hp=" << _hp << std::endl;
+    auto const zone = ZoneManager::Singleton::GetInstance().FindZone(_currentZoneId);
+    if (zone)
+    {
+        W2CHpUpdate hpPacket;
+        hpPacket._actorId = GetActorId();
+        hpPacket._hp = _hp;
+        zone->BroadcastInSight(_position, hpPacket);
+    }
 }

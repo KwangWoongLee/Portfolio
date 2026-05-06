@@ -2,6 +2,8 @@
 #include "ClientSession.h"
 #include "PlayerPost.h"
 #include "ZoneManager.h"
+#include "PacketId.h"
+#include "WorldPackets.h"
 
 void ClientSession::HandlePacket(uint16_t const packetId, void const* const payload, uint32_t const size)
 {
@@ -11,25 +13,37 @@ void ClientSession::HandlePacket(uint16_t const packetId, void const* const payl
         return;
     }
 
-    auto const* const bytes = static_cast<uint8_t const*>(payload);
-    std::vector<uint8_t> data(bytes, bytes + size);
-
-    PostToPlayer(_actorId,
-        [packetId, data = std::move(data)](Player& player)
+    switch (static_cast<EPacketId>(packetId))
+    {
+    case EPacketId::C2WMove:
         {
-            player.OnPacket(packetId, data);
-        });
+            C2WMove pkt;
+            if (not pkt.ReadFromBytes(payload, size))
+            {
+                return;
+            }
+            SendToPlayer(_actorId, PlayerMsg::MoveRequest{ pkt._x, pkt._z });
+        } break;
+
+    case EPacketId::C2WAttack:
+        {
+            C2WAttack pkt;
+            if (not pkt.ReadFromBytes(payload, size))
+            {
+                return;
+            }
+            SendToPlayer(_actorId, PlayerMsg::AttackRequest{ pkt._targetActorId });
+        } break;
+
+    default:
+        break;
+    }
 }
 
 void ClientSession::OnConnected()
 {
-    auto const self = IOCPSessionManager::Singleton::GetConstInstance().Find(GetSessionId());
-    if (not self)
-    {
-        return;
-    }
-
-    auto const player = PlayerManager::Singleton::GetInstance().Create(self);
+    auto const session = std::static_pointer_cast<IOCPSession>(shared_from_this());
+    auto const player = PlayerManager::Singleton::GetInstance().Create(session);
     _actorId = player->GetActorId();
 
     std::cout << "[ClientSession:" << GetSessionId() << "] Connected (actor=" << _actorId << ")" << std::endl;
