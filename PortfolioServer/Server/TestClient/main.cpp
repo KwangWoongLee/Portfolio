@@ -7,6 +7,15 @@
 #include "TimerManager.h"
 #include "TestClientSession.h"
 
+namespace
+{
+    auto constexpr TARGET_CONNECTIONS = 1000;
+    auto constexpr SPAWN_INTERVAL = std::chrono::milliseconds(1);
+
+    auto constexpr NETWORK_IO_THREADS = 4;
+    auto constexpr TIMER_THREADS = 2;
+}
+
 int main()
 {
     auto const iocp = std::make_shared<IOCP>();
@@ -15,8 +24,8 @@ int main()
     IOCPSessionManager::Singleton::GetInstance().Init(iocp);
 
     auto& dispatcher = TaskDispatcher::Singleton::GetInstance();
-    dispatcher.AddExecutor(ETaskType::NetworkIO, 1);
-    dispatcher.AddExecutor(ETaskType::Timer, 1);
+    dispatcher.AddExecutor(ETaskType::NetworkIO, NETWORK_IO_THREADS);
+    dispatcher.AddExecutor(ETaskType::Timer, TIMER_THREADS);
 
     TimerManager::Singleton::GetInstance().Start();
 
@@ -27,8 +36,19 @@ int main()
         }
     );
 
-    std::cout << "[Main] Connecting to 127.0.0.1:9000..." << std::endl;
-    connector.AsyncConnect();
+    std::cout << "[Main] Spawning " << TARGET_CONNECTIONS << " connections..." << std::endl;
+
+    std::thread spawner(
+        [&connector]()
+        {
+            for (int32_t i = 0; i < TARGET_CONNECTIONS; ++i)
+            {
+                connector.AsyncConnect();
+                std::this_thread::sleep_for(SPAWN_INTERVAL);
+            }
+            std::cout << "[Main] All connect requests issued." << std::endl;
+        });
+    spawner.detach();
 
     engine.Run();
 

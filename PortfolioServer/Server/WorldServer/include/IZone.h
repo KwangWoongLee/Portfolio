@@ -3,6 +3,7 @@
 #include "Packet.h"
 #include "WorldTypes.h"
 #include "Grid.h"
+#include "WorldPackets.h"
 
 class Player;
 
@@ -32,6 +33,8 @@ public:
     virtual void Leave(ActorId const actorId);
 
     void OnActorMove(ActorId const actorId, Position const& oldPos, Position const& newPos);
+
+    void GetSightSnapshot(ActorId const selfActorId, std::vector<ActorSnapshot>& outSnapshots) const;
 
     void Broadcast(Packet const& packet);
     void BroadcastInSight(Position const& center, Packet const& packet, ActorId const excludeActorId = INVALID_ACTOR_ID);

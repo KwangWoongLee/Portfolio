@@ -1,26 +1,25 @@
 #pragma once
 #include "CorePch.h"
+#include <random>
 #include "IOCPSession.h"
 #include "Packet.h"
-
-struct TestPacket final : public Packet
-{
-    MAKABLE_STREAM(1, _value)
-
-    int32_t _value{};
-};
 
 class TestClientSession final
     : public IOCPSession
 {
 public:
-    void HandlePacket(uint16_t packetId, void const* payload, uint32_t size) override
-    {
-        std::cout << "[Client:" << GetSessionId() << "] "
-            << "Recv PacketId=" << packetId << " Size=" << size << std::endl;
-    }
+    void HandlePacket(uint16_t const packetId, void const* const payload, uint32_t const size) override;
 
 private:
     void OnConnected() override;
     void OnDisconnected() override;
+
+    void TickMove();
+    void TickAttack();
+
+    std::mt19937 _rng;
+    float _x{};
+    float _z{};
+    TimerId _moveTimerId{};
+    TimerId _attackTimerId{};
 };

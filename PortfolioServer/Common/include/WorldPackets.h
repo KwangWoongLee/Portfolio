@@ -4,6 +4,14 @@
 #include "Actor.h"
 #include "PacketId.h"
 
+struct ActorSnapshot final
+{
+    ActorId _actorId{};
+    float _x{};
+    float _z{};
+    int32_t _hp{};
+};
+
 struct C2WMove final
     : public Packet
 {
@@ -19,6 +27,17 @@ struct C2WAttack final
     PACKET_STREAM(EPacketId::C2WAttack, _targetActorId)
 
     ActorId _targetActorId{};
+};
+
+struct W2CWelcome final
+    : public Packet
+{
+    PACKET_STREAM(EPacketId::W2CWelcome, _actorId, _x, _z, _nearby)
+
+    ActorId _actorId{};
+    float _x{};
+    float _z{};
+    std::vector<ActorSnapshot> _nearby;
 };
 
 struct W2CMoveBroadcast final
@@ -44,6 +63,25 @@ struct W2CDeath final
     : public Packet
 {
     PACKET_STREAM(EPacketId::W2CDeath, _actorId)
+
+    ActorId _actorId{};
+};
+
+struct W2CActorEnter final
+    : public Packet
+{
+    PACKET_STREAM(EPacketId::W2CActorEnter, _actorId, _x, _z, _hp)
+
+    ActorId _actorId{};
+    float _x{};
+    float _z{};
+    int32_t _hp{};
+};
+
+struct W2CActorLeave final
+    : public Packet
+{
+    PACKET_STREAM(EPacketId::W2CActorLeave, _actorId)
 
     ActorId _actorId{};
 };

@@ -38,6 +38,12 @@ public:
 
     void GetNearbyActorIds(Position const& center, std::vector<ActorId>& outActorIds) const;
 
+    void GetSightDiff(
+        Position const& newCenter,
+        Position const& oldCenter,
+        std::vector<ActorId>& outEntered,
+        std::vector<ActorId>& outLeft) const;
+
 private:
     Cell& GetOrCreateCell(CellIndex const& idx);
     Cell const* GetCell(CellIndex const& idx) const;

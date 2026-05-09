@@ -49,6 +49,19 @@ void ClientSession::OnConnected()
     std::cout << "[ClientSession:" << GetSessionId() << "] Connected (actor=" << _actorId << ")" << std::endl;
 
     ZoneManager::Singleton::GetInstance().MovePlayer(player, 1);
+
+    W2CWelcome welcomePkt;
+    welcomePkt._actorId = _actorId;
+    welcomePkt._x = player->GetPosition()._x;
+    welcomePkt._z = player->GetPosition()._z;
+
+    if (auto const zone = ZoneManager::Singleton::GetInstance().FindZone(player->GetCurrentZoneId()))
+    {
+        zone->GetSightSnapshot(_actorId, welcomePkt._nearby);
+    }
+
+    SendPacket(welcomePkt);
+    FlushPacketStream();
 }
 
 void ClientSession::OnDisconnected()

@@ -68,6 +68,24 @@ public:
     template <typename T>
     bool WriteField(T const& value) { return Write(value); }
 
+    template <typename T>
+    bool WriteField(std::vector<T> const& vec)
+    {
+        auto const count = static_cast<uint32_t>(vec.size());
+        if (not Write(count))
+        {
+            return false;
+        }
+        for (auto const& item : vec)
+        {
+            if (not WriteField(item))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     template <typename... ARGS>
     static bool WritePacket(StreamWriter& writer, uint16_t const packetId, ARGS const&... args)
     {
@@ -136,6 +154,29 @@ public:
 
     template <typename T>
     bool ReadField(T& out) { return Read(out); }
+
+    template <typename T>
+    bool ReadField(std::vector<T>& vec)
+    {
+        uint32_t count{};
+        if (not Read(count))
+        {
+            return false;
+        }
+        if (Stream::MAX_SIZE < count)
+        {
+            return false;
+        }
+        vec.resize(count);
+        for (auto& item : vec)
+        {
+            if (not ReadField(item))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 
     template <typename... ARGS>
     bool ReadFields(ARGS&... args)

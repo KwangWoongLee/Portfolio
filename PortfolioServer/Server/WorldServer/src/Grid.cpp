@@ -65,6 +65,64 @@ void Grid::GetNearbyActorIds(Position const& center, std::vector<ActorId>& outAc
     }
 }
 
+void Grid::GetSightDiff(
+    Position const& newCenter,
+    Position const& oldCenter,
+    std::vector<ActorId>& outEntered,
+    std::vector<ActorId>& outLeft) const
+{
+    auto const newIdx = GetCellIndex(newCenter);
+    auto const oldIdx = GetCellIndex(oldCenter);
+
+    auto const isInOldSight = [&oldIdx](CellIndex const& idx)
+        {
+            return std::abs(idx._x - oldIdx._x) <= 1 && std::abs(idx._z - oldIdx._z) <= 1;
+        };
+
+    auto const isInNewSight = [&newIdx](CellIndex const& idx)
+        {
+            return std::abs(idx._x - newIdx._x) <= 1 && std::abs(idx._z - newIdx._z) <= 1;
+        };
+
+    for (int32_t dx = -1; dx <= 1; ++dx)
+    {
+        for (int32_t dz = -1; dz <= 1; ++dz)
+        {
+            auto const cellIdx = CellIndex{ newIdx._x + dx, newIdx._z + dz };
+            if (isInOldSight(cellIdx))
+            {
+                continue;
+            }
+            if (auto const* cell = GetCell(cellIdx))
+            {
+                for (auto const actorId : *cell)
+                {
+                    outEntered.emplace_back(actorId);
+                }
+            }
+        }
+    }
+
+    for (int32_t dx = -1; dx <= 1; ++dx)
+    {
+        for (int32_t dz = -1; dz <= 1; ++dz)
+        {
+            auto const cellIdx = CellIndex{ oldIdx._x + dx, oldIdx._z + dz };
+            if (isInNewSight(cellIdx))
+            {
+                continue;
+            }
+            if (auto const* cell = GetCell(cellIdx))
+            {
+                for (auto const actorId : *cell)
+                {
+                    outLeft.emplace_back(actorId);
+                }
+            }
+        }
+    }
+}
+
 Grid::Cell& Grid::GetOrCreateCell(CellIndex const& idx)
 {
     return _cells[idx];
