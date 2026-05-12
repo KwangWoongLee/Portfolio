@@ -73,6 +73,16 @@ void KeySerialTaskExecutor::Shutdown()
     }
 }
 
+size_t KeySerialTaskExecutor::GetTotalQueueSize() const
+{
+    size_t total{ 0 };
+    for (auto const& w : _workers)
+    {
+        total += w->_queue.ApproxSize();
+    }
+    return total;
+}
+
 void KeySerialTaskExecutor::ThreadLoop(size_t const index) const
 {
     auto const& ctx = _workers[index];

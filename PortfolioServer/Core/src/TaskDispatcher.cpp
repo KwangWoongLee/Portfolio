@@ -35,3 +35,16 @@ void TaskDispatcher::Dispatch(std::shared_ptr<ITask> const& task) const
 
     _executors.at(taskTypeIndex)->Reserve(task);
 }
+
+size_t TaskDispatcher::GetTotalQueueSize() const
+{
+    size_t total{ 0 };
+    for (auto const& exec : _executors)
+    {
+        if (exec)
+        {
+            total += exec->GetTotalQueueSize();
+        }
+    }
+    return total;
+}

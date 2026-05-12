@@ -202,6 +202,8 @@ void IOCPSession::HandleStream(Stream& stream)
         auto task = std::make_shared<PacketRecvTask>(_sessionId, packetId, std::move(payloadCopy));
         TaskDispatcher::Singleton::GetInstance().Dispatch(task);
 
+        Metrics::OnRecvPacket();
+
         offset = packetBodyEnd;
     }
 

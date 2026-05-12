@@ -11,6 +11,8 @@ public:
     bool AddExecutor(ETaskType const taskType, uint8_t const threadCount);
     void Dispatch(std::shared_ptr<ITask> const& task) const;
 
+    size_t GetTotalQueueSize() const;
+
 private:
     std::array<std::unique_ptr<KeySerialTaskExecutor>, TASK_TYPE_MAX> _executors;
 };

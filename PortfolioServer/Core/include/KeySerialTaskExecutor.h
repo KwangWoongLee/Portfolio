@@ -14,6 +14,8 @@ public:
     void Reserve(std::shared_ptr<ITask> const& task) const;
     void Shutdown();
 
+    size_t GetTotalQueueSize() const;
+
 private:
     void ThreadLoop(size_t const index) const;
 

@@ -4,6 +4,7 @@
 #include "IOCPObject.h"
 #include "IOEvent.h"
 #include "LinearBuffer.h"
+#include "Metrics.h"
 #include "Stream.h"
 
 class IOCPSession;
@@ -94,6 +95,8 @@ public:
                 return;
             }
         }
+
+        Metrics::OnSendPacket();
     }
 private:
     virtual void OnConnected() {}
