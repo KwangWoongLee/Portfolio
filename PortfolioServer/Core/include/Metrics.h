@@ -3,18 +3,16 @@
 
 namespace Metrics
 {
-    inline std::atomic<uint64_t> g_recvPackets{};
-    inline std::atomic<uint64_t> g_sendPackets{};
-    inline std::atomic<uint32_t> g_ccu{};
-    inline std::atomic<uint32_t> g_taskQueueLen{};
+    inline std::atomic<uint64_t> g_recvPacketCount{};
+    inline std::atomic<uint64_t> g_sendPacketCount{};
 
     inline void OnRecvPacket()
     {
-        g_recvPackets.fetch_add(1);
+        g_recvPacketCount.fetch_add(1, std::memory_order_relaxed);
     }
 
     inline void OnSendPacket()
     {
-        g_sendPackets.fetch_add(1);
+        g_sendPacketCount.fetch_add(1, std::memory_order_relaxed);
     }
 }

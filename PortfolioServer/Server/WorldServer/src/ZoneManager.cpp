@@ -110,6 +110,14 @@ bool ZoneManager::EnterInstanceDungeon(std::shared_ptr<Player> const& player, In
     return MovePlayer(player, instance->GetZoneId());
 }
 
+void ZoneManager::CollectAllSnapshots(std::vector<ActorSnapshot>& outSnapshots) const
+{
+    for (auto const& [id, zone] : _zones)
+    {
+        zone->CollectAllSnapshots(outSnapshots);
+    }
+}
+
 void ZoneManager::CleanupEmptyInstances()
 {
     std::vector<InstanceId> toRemove;

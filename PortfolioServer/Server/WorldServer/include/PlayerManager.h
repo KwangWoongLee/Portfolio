@@ -10,6 +10,7 @@ public:
     std::shared_ptr<Player> Create(std::shared_ptr<IOCPSession> const& session);
     void Remove(ActorId const actorId);
     std::shared_ptr<Player> Find(ActorId const actorId) const;
+    size_t GetCount() const;
 
 private:
     mutable std::shared_mutex _mutex;

@@ -16,4 +16,7 @@ enum class EPacketId : uint16_t
     W2CDeath         = 0x2003,
     W2CActorEnter    = 0x2004,
     W2CActorLeave    = 0x2005,
+
+    // World -> Observer (0x3xxx)
+    W2OSnapshot      = 0x3001,
 };

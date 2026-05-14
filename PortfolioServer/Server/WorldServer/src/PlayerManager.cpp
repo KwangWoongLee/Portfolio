@@ -41,3 +41,9 @@ std::shared_ptr<Player> PlayerManager::Find(ActorId const actorId) const
 
     return iter->second;
 }
+
+size_t PlayerManager::GetCount() const
+{
+    std::shared_lock lock(_mutex);
+    return _players.size();
+}

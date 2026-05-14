@@ -9,6 +9,7 @@ enum class ELinkType : uint8_t
 	UniverseServer,
 	WorldServer,
 	Client,
+	Observer,
 	Max
 };
 

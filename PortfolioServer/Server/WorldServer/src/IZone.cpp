@@ -40,6 +40,21 @@ bool IZone::Enter(std::shared_ptr<Player> const& player)
     return true;
 }
 
+void IZone::CollectAllSnapshots(std::vector<ActorSnapshot>& outSnapshots) const
+{
+    outSnapshots.reserve(outSnapshots.size() + _players.size());
+
+    for (auto const& [id, player] : _players)
+    {
+        ActorSnapshot snap;
+        snap._actorId = id;
+        snap._x = player->GetPosition()._x;
+        snap._z = player->GetPosition()._z;
+        snap._hp = player->GetHp();
+        outSnapshots.emplace_back(snap);
+    }
+}
+
 void IZone::GetSightSnapshot(ActorId const selfActorId, std::vector<ActorSnapshot>& outSnapshots) const
 {
     auto const iter = _players.find(selfActorId);

@@ -75,6 +75,7 @@
     <ClInclude Include="include\ActorTask.h" />
     <ClInclude Include="include\CmsManager.h" />
     <ClInclude Include="include\CmsTypes.h" />
+    <ClInclude Include="include\ObserverPackets.h" />
     <ClInclude Include="include\PacketId.h" />
     <ClInclude Include="include\SiegeWarData.h" />
     <ClInclude Include="include\SiegeScheduleData.h" />

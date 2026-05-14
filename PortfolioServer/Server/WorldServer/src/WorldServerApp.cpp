@@ -1,10 +1,15 @@
 #include "CorePch.h"
 #include "WorldServerApp.h"
 #include "ClientSession.h"
+#include "ObserverSession.h"
+#include "ObserverManager.h"
 #include "IOCPSessionManager.h"
+#include "TimerManager.h"
 #include "ZoneManager.h"
 
 auto constexpr WORLD_PORT = 9000;
+auto constexpr OBSERVER_PORT = 9001;
+auto constexpr OBSERVER_PUSH_INTERVAL = std::chrono::milliseconds(100);
 
 bool WorldServerApp::Init()
 {
@@ -23,7 +28,27 @@ bool WorldServerApp::Init()
 
     std::cout << "[WorldServer] Listening on port " << WORLD_PORT << std::endl;
 
+    if (not _engine->AddListener(OBSERVER_PORT, ELinkType::Observer,
+        []() -> std::shared_ptr<IOCPSession>
+        {
+            return IOCPSessionManager::Singleton::GetInstance().CreateSession<ObserverSession>();
+        }))
+    {
+        std::cout << "[WorldServer] Failed to add observer listener on port " << OBSERVER_PORT << std::endl;
+        return false;
+    }
+
+    std::cout << "[WorldServer] Observer listening on port " << OBSERVER_PORT << std::endl;
+
     InitZones();
+
+    TimerManager::Singleton::GetInstance().AddRepeatTimer(
+        OBSERVER_PUSH_INTERVAL,
+        0,
+        []()
+        {
+            ObserverManager::Singleton::GetInstance().PushSnapshot();
+        });
 
     return true;
 }

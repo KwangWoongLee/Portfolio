@@ -22,6 +22,8 @@ public:
 
     void CleanupEmptyInstances();
 
+    void CollectAllSnapshots(std::vector<struct ActorSnapshot>& outSnapshots) const;
+
 private:
     void StartZoneTick(std::shared_ptr<IZone> const& zone);
     ZoneId AllocateZoneId();

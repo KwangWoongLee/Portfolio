@@ -35,6 +35,7 @@ public:
     void OnActorMove(ActorId const actorId, Position const& oldPos, Position const& newPos);
 
     void GetSightSnapshot(ActorId const selfActorId, std::vector<ActorSnapshot>& outSnapshots) const;
+    void CollectAllSnapshots(std::vector<ActorSnapshot>& outSnapshots) const;
 
     void Broadcast(Packet const& packet);
     void BroadcastInSight(Position const& center, Packet const& packet, ActorId const excludeActorId = INVALID_ACTOR_ID);
