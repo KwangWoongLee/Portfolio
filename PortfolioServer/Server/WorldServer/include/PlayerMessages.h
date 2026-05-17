@@ -28,4 +28,8 @@ namespace PlayerMsg
         ActorId _healerId;
         int32_t _amount{};
     };
+
+    struct Respawn
+    {
+    };
 }

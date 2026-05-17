@@ -30,6 +30,7 @@ public:
     void OnMessage(PlayerMsg::AttackRequest const& msg);
     void OnMessage(PlayerMsg::Attacked const& msg);
     void OnMessage(PlayerMsg::Healed const& msg);
+    void OnMessage(PlayerMsg::Respawn const& msg);
 
 private:
     static int32_t constexpr MAX_HP = 100;

@@ -1,12 +1,14 @@
 #include "CorePch.h"
 #include "Player.h"
 #include "PlayerPost.h"
+#include "TimerManager.h"
 #include "ZoneManager.h"
 #include "WorldPackets.h"
 
 namespace
 {
     auto constexpr DEFAULT_ATTACK_DAMAGE = 25;
+    auto constexpr RESPAWN_DELAY = std::chrono::seconds(5);
 }
 
 void Player::OnPacket(uint16_t const packetId, std::vector<uint8_t> const& payload)
@@ -76,6 +78,15 @@ void Player::OnMessage(PlayerMsg::Attacked const& msg)
             deathPacket._actorId = GetActorId();
             zone->BroadcastInSight(_position, deathPacket);
         }
+
+        auto const selfActorId = GetActorId();
+        TimerManager::Singleton::GetInstance().AddTimer(
+            std::chrono::duration_cast<std::chrono::milliseconds>(RESPAWN_DELAY),
+            static_cast<int64_t>(selfActorId),
+            [selfActorId]()
+            {
+                SendToPlayer(selfActorId, PlayerMsg::Respawn{});
+            });
     }
 }
 
@@ -91,6 +102,22 @@ void Player::OnMessage(PlayerMsg::Healed const& msg)
     {
         _hp = MAX_HP;
     }
+
+    auto const zone = ZoneManager::Singleton::GetInstance().FindZone(_currentZoneId);
+    if (zone)
+    {
+        W2CHpUpdate hpPacket;
+        hpPacket._actorId = GetActorId();
+        hpPacket._hp = _hp;
+        zone->BroadcastInSight(_position, hpPacket);
+    }
+}
+
+void Player::OnMessage(PlayerMsg::Respawn const& msg)
+{
+    (void)msg;
+
+    _hp = MAX_HP;
 
     auto const zone = ZoneManager::Singleton::GetInstance().FindZone(_currentZoneId);
     if (zone)
