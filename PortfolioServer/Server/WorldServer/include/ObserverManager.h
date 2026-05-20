@@ -19,6 +19,7 @@ private:
     std::unordered_map<SessionId, std::weak_ptr<ObserverSession>> _observers;
 
     Clock::time_point _lastSampleTime{ Clock::now() };
+    Clock::time_point _lastCsvLogTime{ Clock::now() };
     uint64_t _lastRecvPacketCount{};
     uint64_t _lastSendPacketCount{};
 };

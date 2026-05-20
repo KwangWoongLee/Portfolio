@@ -79,6 +79,7 @@
     <ClInclude Include="include\FieldZone.h" />
     <ClInclude Include="include\InstanceZone.h" />
     <ClInclude Include="include\IZone.h" />
+    <ClInclude Include="include\MetricsLogger.h" />
     <ClInclude Include="include\ObserverManager.h" />
     <ClInclude Include="include\ObserverSession.h" />
     <ClInclude Include="include\Player.h" />
@@ -96,6 +97,7 @@
     <ClCompile Include="src\FieldZone.cpp" />
     <ClCompile Include="src\InstanceZone.cpp" />
     <ClCompile Include="src\IZone.cpp" />
+    <ClCompile Include="src\MetricsLogger.cpp" />
     <ClCompile Include="src\ObserverManager.cpp" />
     <ClCompile Include="src\ObserverSession.cpp" />
     <ClCompile Include="src\Player.cpp" />

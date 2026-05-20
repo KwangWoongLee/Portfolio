@@ -5,7 +5,13 @@
 #include "ZoneManager.h"
 #include "PlayerManager.h"
 #include "Metrics.h"
+#include "MetricsLogger.h"
 #include "TaskDispatcher.h"
+
+namespace
+{
+    auto constexpr CSV_LOG_INTERVAL = std::chrono::milliseconds(10000);
+}
 
 void ObserverManager::Register(std::shared_ptr<ObserverSession> const& session)
 {
@@ -42,6 +48,20 @@ void ObserverManager::PushSnapshot()
     pkt._queueLen = static_cast<uint32_t>(TaskDispatcher::Singleton::GetConstInstance().GetTotalQueueSize());
 
     ZoneManager::Singleton::GetConstInstance().CollectAllSnapshots(pkt._actors);
+
+    auto const sinceLastCsvLogMs = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - _lastCsvLogTime);
+    if (CSV_LOG_INTERVAL <= sinceLastCsvLogMs)
+    {
+        MetricsSample sample;
+        sample._timestamp = std::chrono::system_clock::now();
+        sample._ccu = pkt._ccu;
+        sample._sendPacketsPerSecond = pkt._sendPps;
+        sample._recvPacketsPerSecond = pkt._recvPps;
+        sample._taskQueueSize = pkt._queueLen;
+        MetricsLogger::Singleton::GetInstance().Enqueue(std::move(sample));
+
+        _lastCsvLogTime = currentTime;
+    }
 
     std::shared_lock lock(_mutex);
     for (auto const& [sessionId, weakSession] : _observers)

@@ -17,3 +17,6 @@ x86/
 # 기타
 *.ipch
 *.log
+
+# Metrics output
+metrics/

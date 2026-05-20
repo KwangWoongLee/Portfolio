@@ -3,13 +3,20 @@
 #include "ClientSession.h"
 #include "ObserverSession.h"
 #include "ObserverManager.h"
+#include "MetricsLogger.h"
 #include "IOCPSessionManager.h"
 #include "TimerManager.h"
 #include "ZoneManager.h"
+#include <iomanip>
 
 auto constexpr WORLD_PORT = 9000;
 auto constexpr OBSERVER_PORT = 9001;
 auto constexpr OBSERVER_PUSH_INTERVAL = std::chrono::milliseconds(100);
+
+namespace
+{
+    auto const METRICS_CSV_PATH = "metrics/server_metrics.csv";
+}
 
 bool WorldServerApp::Init()
 {
@@ -40,6 +47,12 @@ bool WorldServerApp::Init()
 
     std::cout << "[WorldServer] Observer listening on port " << OBSERVER_PORT << std::endl;
 
+    if (not MetricsLogger::Singleton::GetInstance().Start(METRICS_CSV_PATH))
+    {
+        std::cout << "[WorldServer] Failed to start MetricsLogger" << std::endl;
+        return false;
+    }
+
     InitZones();
 
     TimerManager::Singleton::GetInstance().AddRepeatTimer(
@@ -60,6 +73,7 @@ void WorldServerApp::Run()
 
 void WorldServerApp::Stop()
 {
+    MetricsLogger::Singleton::GetInstance().Stop();
     _engine->Stop();
 }
 
