@@ -90,6 +90,9 @@
     <ClInclude Include="include\ClientSession.h" />
     <ClInclude Include="include\WorldTypes.h" />
     <ClInclude Include="include\ZoneManager.h" />
+    <ClInclude Include="include\ZoneMessages.h" />
+    <ClInclude Include="include\ZonePost.h" />
+    <ClInclude Include="include\ZoneTask.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />

@@ -3,6 +3,7 @@
 
 void InstanceZone::Update()
 {
+    UpdateSnapshotCache();
     // TODO: 던전 로직, 몬스터 AI, 클리어 조건 체크 등
 }
 

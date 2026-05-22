@@ -4,6 +4,7 @@
 #include "InstanceZone.h"
 #include "Player.h"
 #include "TimerManager.h"
+#include "ZonePost.h"
 
 void ZoneManager::CreateField(ZoneId const zoneId)
 {
@@ -90,13 +91,12 @@ bool ZoneManager::MovePlayer(std::shared_ptr<Player> const& player, ZoneId const
     auto const fromZoneId = player->GetCurrentZoneId();
     if (INVALID_ZONE_ID != fromZoneId)
     {
-        if (auto const fromZone = FindZone(fromZoneId))
-        {
-            fromZone->Leave(player->GetActorId());
-        }
+        SendToZone(fromZoneId, ZoneMsg::PlayerLeft{ player->GetActorId() });
     }
 
-    return toZone->Enter(player);
+    player->SetCurrentZoneId(toZoneId);
+    SendToZone(toZoneId, ZoneMsg::PlayerEntered{ player });
+    return true;
 }
 
 bool ZoneManager::EnterInstanceDungeon(std::shared_ptr<Player> const& player, InstanceId const instanceId)
@@ -114,7 +114,10 @@ void ZoneManager::CollectAllSnapshots(std::vector<ActorSnapshot>& outSnapshots) 
 {
     for (auto const& [id, zone] : _zones)
     {
-        zone->CollectAllSnapshots(outSnapshots);
+        if (auto const cached = zone->GetCachedSnapshot())
+        {
+            outSnapshots.insert(outSnapshots.end(), cached->begin(), cached->end());
+        }
     }
 }
 

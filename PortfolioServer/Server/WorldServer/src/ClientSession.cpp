@@ -2,6 +2,7 @@
 #include "ClientSession.h"
 #include "PlayerPost.h"
 #include "ZoneManager.h"
+#include "ZonePost.h"
 #include "PacketId.h"
 #include "WorldPackets.h"
 
@@ -48,20 +49,8 @@ void ClientSession::OnConnected()
 
     std::cout << "[ClientSession:" << GetSessionId() << "] Connected (actor=" << _actorId << ")" << std::endl;
 
+    // MovePlayer가 SendToZone(PlayerEntered)로 위임. Zone worker가 _players.emplace + W2CWelcome 송신.
     ZoneManager::Singleton::GetInstance().MovePlayer(player, 1);
-
-    W2CWelcome welcomePkt;
-    welcomePkt._actorId = _actorId;
-    welcomePkt._x = player->GetPosition()._x;
-    welcomePkt._z = player->GetPosition()._z;
-
-    if (auto const zone = ZoneManager::Singleton::GetInstance().FindZone(player->GetCurrentZoneId()))
-    {
-        zone->GetSightSnapshot(_actorId, welcomePkt._nearby);
-    }
-
-    SendPacket(welcomePkt);
-    FlushPacketStream();
 }
 
 void ClientSession::OnDisconnected()
@@ -77,10 +66,7 @@ void ClientSession::OnDisconnected()
         auto const zoneId = player->GetCurrentZoneId();
         if (INVALID_ZONE_ID != zoneId)
         {
-            if (auto const zone = ZoneManager::Singleton::GetInstance().FindZone(zoneId))
-            {
-                zone->Leave(_actorId);
-            }
+            SendToZone(zoneId, ZoneMsg::PlayerLeft{ _actorId });
         }
     }
 

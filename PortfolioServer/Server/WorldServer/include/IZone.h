@@ -4,6 +4,7 @@
 #include "WorldTypes.h"
 #include "Grid.h"
 #include "WorldPackets.h"
+#include "ZoneMessages.h"
 
 class Player;
 
@@ -34,8 +35,17 @@ public:
 
     void OnActorMove(ActorId const actorId, Position const& oldPos, Position const& newPos);
 
+    void OnMessage(ZoneMsg::ActorMoved const& msg);
+    void OnMessage(ZoneMsg::PlayerEntered const& msg);
+    void OnMessage(ZoneMsg::PlayerLeft const& msg);
+    void OnMessage(ZoneMsg::BroadcastInSightRequest const& msg);
+
     void GetSightSnapshot(ActorId const selfActorId, std::vector<ActorSnapshot>& outSnapshots) const;
     void CollectAllSnapshots(std::vector<ActorSnapshot>& outSnapshots) const;
+
+    // Zone tick에서 갱신, 외부 thread는 atomic load로 race-free read.
+    void UpdateSnapshotCache();
+    std::shared_ptr<std::vector<ActorSnapshot> const> GetCachedSnapshot() const { return _cachedSnapshot.load(std::memory_order_acquire); }
 
     void Broadcast(Packet const& packet);
     void BroadcastInSight(Position const& center, Packet const& packet, ActorId const excludeActorId = INVALID_ACTOR_ID);
@@ -48,4 +58,6 @@ protected:
 
     Grid _grid;
     std::unordered_map<ActorId, std::shared_ptr<Player>> _players;
+
+    std::atomic<std::shared_ptr<std::vector<ActorSnapshot> const>> _cachedSnapshot;
 };

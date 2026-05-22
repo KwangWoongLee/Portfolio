@@ -40,6 +40,24 @@ bool IZone::Enter(std::shared_ptr<Player> const& player)
     return true;
 }
 
+void IZone::UpdateSnapshotCache()
+{
+    auto newSnapshot = std::make_shared<std::vector<ActorSnapshot>>();
+    newSnapshot->reserve(_players.size());
+
+    for (auto const& [id, player] : _players)
+    {
+        ActorSnapshot snap;
+        snap._actorId = id;
+        snap._x = player->GetPosition()._x;
+        snap._z = player->GetPosition()._z;
+        snap._hp = player->GetHp();
+        newSnapshot->push_back(snap);
+    }
+
+    _cachedSnapshot.store(std::move(newSnapshot), std::memory_order_release);
+}
+
 void IZone::CollectAllSnapshots(std::vector<ActorSnapshot>& outSnapshots) const
 {
     outSnapshots.reserve(outSnapshots.size() + _players.size());
@@ -109,6 +127,46 @@ void IZone::Leave(ActorId const actorId)
 
     std::cout << "[Zone:" << _zoneId << "] Actor=" << actorId
         << " left (count=" << _players.size() << ")" << std::endl;
+}
+
+void IZone::OnMessage(ZoneMsg::ActorMoved const& msg)
+{
+    OnActorMove(msg._actorId, msg._oldPosition, msg._newPosition);
+
+    W2CMoveBroadcast packet;
+    packet._actorId = msg._actorId;
+    packet._x = msg._newPosition._x;
+    packet._z = msg._newPosition._z;
+    BroadcastInSight(msg._newPosition, packet, msg._actorId);
+}
+
+void IZone::OnMessage(ZoneMsg::PlayerEntered const& msg)
+{
+    auto const& player = msg._player;
+    Enter(player);
+
+    W2CWelcome welcomePacket;
+    welcomePacket._actorId = player->GetActorId();
+    welcomePacket._x = player->GetPosition()._x;
+    welcomePacket._z = player->GetPosition()._z;
+
+    GetSightSnapshot(player->GetActorId(), welcomePacket._nearby);
+
+    if (auto const session = player->GetSession())
+    {
+        session->SendPacket(welcomePacket);
+        session->FlushPacketStream();
+    }
+}
+
+void IZone::OnMessage(ZoneMsg::PlayerLeft const& msg)
+{
+    Leave(msg._actorId);
+}
+
+void IZone::OnMessage(ZoneMsg::BroadcastInSightRequest const& msg)
+{
+    BroadcastInSight(msg._center, *msg._packet, msg._excludeActorId);
 }
 
 void IZone::OnActorMove(ActorId const actorId, Position const& oldPos, Position const& newPos)

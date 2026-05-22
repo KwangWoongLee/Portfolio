@@ -3,6 +3,7 @@
 #include "PlayerPost.h"
 #include "TimerManager.h"
 #include "ZoneManager.h"
+#include "ZonePost.h"
 #include "WorldPackets.h"
 
 namespace
@@ -24,22 +25,15 @@ void Player::OnMessage(PlayerMsg::MoveRequest const& msg)
         return;
     }
 
-    auto const oldPos = _position;
+    auto const oldPosition = _position;
     _position = { msg._x, msg._z };
 
-    auto const zone = ZoneManager::Singleton::GetInstance().FindZone(_currentZoneId);
-    if (not zone)
+    if (INVALID_ZONE_ID == _currentZoneId)
     {
         return;
     }
 
-    zone->OnActorMove(GetActorId(), oldPos, _position);
-
-    W2CMoveBroadcast packet;
-    packet._actorId = GetActorId();
-    packet._x = _position._x;
-    packet._z = _position._z;
-    zone->BroadcastInSight(_position, packet, GetActorId());
+    SendToZone(_currentZoneId, ZoneMsg::ActorMoved{ GetActorId(), oldPosition, _position });
 }
 
 void Player::OnMessage(PlayerMsg::AttackRequest const& msg)
@@ -61,22 +55,21 @@ void Player::OnMessage(PlayerMsg::Attacked const& msg)
 
     _hp -= msg._damage;
 
-    auto const zone = ZoneManager::Singleton::GetInstance().FindZone(_currentZoneId);
-    if (zone)
+    if (INVALID_ZONE_ID != _currentZoneId)
     {
-        W2CHpUpdate hpPacket;
-        hpPacket._actorId = GetActorId();
-        hpPacket._hp = _hp;
-        zone->BroadcastInSight(_position, hpPacket);
+        auto hpPacket = std::make_shared<W2CHpUpdate>();
+        hpPacket->_actorId = GetActorId();
+        hpPacket->_hp = _hp;
+        SendToZone(_currentZoneId, ZoneMsg::BroadcastInSightRequest{ hpPacket, _position, INVALID_ACTOR_ID });
     }
 
     if (IsDead())
     {
-        if (zone)
+        if (INVALID_ZONE_ID != _currentZoneId)
         {
-            W2CDeath deathPacket;
-            deathPacket._actorId = GetActorId();
-            zone->BroadcastInSight(_position, deathPacket);
+            auto deathPacket = std::make_shared<W2CDeath>();
+            deathPacket->_actorId = GetActorId();
+            SendToZone(_currentZoneId, ZoneMsg::BroadcastInSightRequest{ deathPacket, _position, INVALID_ACTOR_ID });
         }
 
         auto const selfActorId = GetActorId();
@@ -103,13 +96,12 @@ void Player::OnMessage(PlayerMsg::Healed const& msg)
         _hp = MAX_HP;
     }
 
-    auto const zone = ZoneManager::Singleton::GetInstance().FindZone(_currentZoneId);
-    if (zone)
+    if (INVALID_ZONE_ID != _currentZoneId)
     {
-        W2CHpUpdate hpPacket;
-        hpPacket._actorId = GetActorId();
-        hpPacket._hp = _hp;
-        zone->BroadcastInSight(_position, hpPacket);
+        auto hpPacket = std::make_shared<W2CHpUpdate>();
+        hpPacket->_actorId = GetActorId();
+        hpPacket->_hp = _hp;
+        SendToZone(_currentZoneId, ZoneMsg::BroadcastInSightRequest{ hpPacket, _position, INVALID_ACTOR_ID });
     }
 }
 
@@ -119,12 +111,11 @@ void Player::OnMessage(PlayerMsg::Respawn const& msg)
 
     _hp = MAX_HP;
 
-    auto const zone = ZoneManager::Singleton::GetInstance().FindZone(_currentZoneId);
-    if (zone)
+    if (INVALID_ZONE_ID != _currentZoneId)
     {
-        W2CHpUpdate hpPacket;
-        hpPacket._actorId = GetActorId();
-        hpPacket._hp = _hp;
-        zone->BroadcastInSight(_position, hpPacket);
+        auto hpPacket = std::make_shared<W2CHpUpdate>();
+        hpPacket->_actorId = GetActorId();
+        hpPacket->_hp = _hp;
+        SendToZone(_currentZoneId, ZoneMsg::BroadcastInSightRequest{ hpPacket, _position, INVALID_ACTOR_ID });
     }
 }
