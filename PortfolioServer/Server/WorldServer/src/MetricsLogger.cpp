@@ -24,7 +24,7 @@ bool MetricsLogger::Start(std::string const& filePath)
 
     if (not fileExists)
     {
-        _file << "timestamp,ccu,sendPps,recvPps,queueSize\n";
+        _file << "timestamp,ccu,sendPps,recvPps,sendBps,recvBps,cpuPercent,queueSize\n";
         _file.flush();
     }
 
@@ -97,5 +97,8 @@ void MetricsLogger::WriteSample(MetricsSample const& sample)
         << sample._ccu << ','
         << sample._sendPacketsPerSecond << ','
         << sample._recvPacketsPerSecond << ','
+        << sample._sendBytesPerSecond << ','
+        << sample._recvBytesPerSecond << ','
+        << sample._cpuPercent << ','
         << sample._taskQueueSize << '\n';
 }

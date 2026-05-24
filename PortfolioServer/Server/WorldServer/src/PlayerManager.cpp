@@ -4,7 +4,7 @@
 
 namespace
 {
-    auto constexpr SPAWN_AREA_HALF_EXTENT = 1000.0f;
+    auto constexpr SPAWN_AREA_HALF_EXTENT = 200.0f;
 }
 
 std::shared_ptr<Player> PlayerManager::Create(std::shared_ptr<IOCPSession> const& session)

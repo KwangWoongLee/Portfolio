@@ -101,10 +101,11 @@ int main()
             damageFramesMap = std::move(currDamageFrames);
 
             DrawText(TextFormat("CCU: %u", snap._ccu), 10, 10, 20, WHITE);
-            DrawText(TextFormat("Send: %u pps", snap._sendPps), 10, 35, 20, WHITE);
-            DrawText(TextFormat("Recv: %u pps", snap._recvPps), 10, 60, 20, WHITE);
-            DrawText(TextFormat("Queue: %u", snap._queueLen), 10, 85, 20, WHITE);
-            DrawText(TextFormat("Actors: %d", static_cast<int>(snap._actors.size())), 10, 110, 20, WHITE);
+            DrawText(TextFormat("Send: %u pps / %u KB/s", snap._sendPps, snap._sendBytesPerSecond / 1024), 10, 35, 20, WHITE);
+            DrawText(TextFormat("Recv: %u pps / %u KB/s", snap._recvPps, snap._recvBytesPerSecond / 1024), 10, 60, 20, WHITE);
+            DrawText(TextFormat("CPU: %u%%", snap._cpuPercent), 10, 85, 20, WHITE);
+            DrawText(TextFormat("Queue: %u", snap._queueLen), 10, 110, 20, WHITE);
+            DrawText(TextFormat("Actors: %d", static_cast<int>(snap._actors.size())), 10, 135, 20, WHITE);
         }
         else if (client.IsConnected())
         {

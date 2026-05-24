@@ -8,6 +8,9 @@ struct MetricsSample final
     uint32_t _ccu{};
     uint32_t _sendPacketsPerSecond{};
     uint32_t _recvPacketsPerSecond{};
+    uint32_t _sendBytesPerSecond{};
+    uint32_t _recvBytesPerSecond{};
+    uint32_t _cpuPercent{};
     uint32_t _taskQueueSize{};
 };
 

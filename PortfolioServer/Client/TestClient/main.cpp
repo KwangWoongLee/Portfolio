@@ -9,10 +9,10 @@
 
 namespace
 {
-    auto constexpr TARGET_CONNECTIONS = 1000;
+    auto constexpr TARGET_CONNECTIONS = 500;
     auto constexpr SPAWN_INTERVAL = std::chrono::milliseconds(1);
 
-    auto constexpr NETWORK_IO_THREADS = 4;
+    auto constexpr NETWORK_IO_THREADS = 8;
     auto constexpr TIMER_THREADS = 2;
 }
 

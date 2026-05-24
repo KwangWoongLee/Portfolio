@@ -39,12 +39,43 @@ void IOCPSession::Dispatch(Overlapped const* iocpEvent, uint32_t const numOfByte
     }
 }
 
+namespace
+{
+    char const* DisconnectReasonToString(EDisconnectReason const reason)
+    {
+        switch (reason)
+        {
+            case EDisconnectReason::None: return "None";
+            case EDisconnectReason::ExplicitCall: return "ExplicitCall";
+            case EDisconnectReason::RecvZero: return "RecvZero";
+            case EDisconnectReason::SendZero: return "SendZero";
+            case EDisconnectReason::RecvOverflow: return "RecvOverflow";
+            case EDisconnectReason::HandleError: return "HandleError";
+            case EDisconnectReason::InvalidState: return "InvalidState";
+            case EDisconnectReason::SendOverflow: return "SendOverflow";
+            case EDisconnectReason::InvalidOperation: return "InvalidOperation";
+        }
+        return "Unknown";
+    }
+}
+
 void IOCPSession::Disconnect(EDisconnectReason const reason)
 {
     auto expected = EIOCPSessionState::Connected;
     if (not _state.compare_exchange_strong(expected, EIOCPSessionState::Disconnecting))
     {
         return;
+    }
+
+    static std::atomic<int> disconnectLogCount{ 0 };
+    auto const currentCount = disconnectLogCount.fetch_add(1);
+    if (currentCount < 50)
+    {
+        std::cout << "[IOCPSession:" << _sessionId << "] Disconnect reason=" << DisconnectReasonToString(reason) << std::endl;
+    }
+    else if (0 == (currentCount % 200))
+    {
+        std::cout << "[IOCPSession] Disconnect count=" << currentCount << " last reason=" << DisconnectReasonToString(reason) << std::endl;
     }
 
     AsyncDisconnect();
@@ -115,6 +146,7 @@ void IOCPSession::OnRecvCompleted(uint32_t const transferred)
     }
 
     _recvBuffer.CommitWrite(transferred);
+    Metrics::OnRecvBytes(transferred);
 
     Stream stream;
     while (true)
@@ -352,6 +384,7 @@ void IOCPSession::SendLocked(char const* buffer, uint32_t const contentSize)
 
     ::memcpy(_sendBuffer.GetWritePtr(), buffer, contentSize);
     _sendBuffer.CommitWrite(contentSize);
+    Metrics::OnSendBytes(contentSize);
 
     if (not _isSendPending)
     {

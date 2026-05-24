@@ -22,4 +22,7 @@ private:
     Clock::time_point _lastCsvLogTime{ Clock::now() };
     uint64_t _lastRecvPacketCount{};
     uint64_t _lastSendPacketCount{};
+    uint64_t _lastRecvByteCount{};
+    uint64_t _lastSendByteCount{};
+    uint64_t _lastProcessCpuTime100ns{};
 };
