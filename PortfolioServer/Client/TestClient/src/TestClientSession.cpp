@@ -8,8 +8,8 @@
 
 namespace
 {
-    auto constexpr MOVE_INTERVAL = std::chrono::seconds(1);
-    auto constexpr ATTACK_INTERVAL = std::chrono::seconds(5);
+    auto constexpr MOVE_INTERVAL = std::chrono::milliseconds(100);
+    auto constexpr ATTACK_INTERVAL = std::chrono::milliseconds(250);
 
     auto constexpr MAP_HALF_EXTENT = 1000.0f;
     auto constexpr MOVE_STEP = 5.0f;

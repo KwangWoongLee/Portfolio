@@ -150,8 +150,38 @@ Server SendPacket → _sendBuffer (64KB)
 ### 7. 해결 방향 (다음 단계)
 
 - **Zone 분할**: 큰 zone 1개 → 작은 zone N개로 분할, worker N개 활용
-- **Tick batching**: 매 이동마다 broadcast X, zone tick(50ms)에 모인 이동들을 `W2CMoveBatch` 1개로 묶어 broadcast. 메시지 수 본질적 감소
+- **Tick batching**: 매 broadcast마다 즉시 송신 X, zone tick(50ms)에 모인 이벤트들을 batch packet 1개로 묶어 송신
 - **Shared queue / work stealing 후보 제외**: 같은 key 직렬화 보장 깨져 액터 모델 무너짐 → race 회귀
+
+### 8. Tick batching 세부 설계
+
+모든 broadcast를 종류별 버퍼에 모으고 zone tick에 한 번에 송신:
+
+| 데이터 종류 | dedup? | 이유 |
+|---|---|---|
+| 이동 (Move) | **X (모두 송신)** | sequence event — 경로 정보가 시각적 의미. dedup하면 위치렉 발생 |
+| 상태값 (HP/MP/Buff) | **O (마지막만)** | idempotent — 마지막 값이 곧 현재 상태 |
+| 이벤트 (공격/데미지/사망) | **X (모두 송신)** | 누락 시 게임 로직 오류 |
+
+```cpp
+// Zone 내부 (zone worker만 접근 → lock 불필요)
+std::vector<ActorMove> _pendingMoves;            // dedup X
+std::unordered_map<ActorId, HpUpdate> _pendingHpUpdates;  // dedup O (key=ActorId)
+std::vector<DamageEvent> _pendingDamages;        // dedup X
+
+void IZone::Update() {  // tick (50ms)
+    UpdateSnapshotCache();
+    FlushPendingMoves();        // → W2CMoveBatch
+    FlushPendingHpUpdates();    // → W2CHpUpdateBatch
+    FlushPendingDamages();      // → W2CDamageBatch
+}
+```
+
+**효과 예상**:
+- SendPacket 호출 횟수 1/N (N=50ms tick 안 평균 이벤트 수)
+- 한 봇 받는 packet 수 감소 → client recv 처리 부담 해소
+- Byte 트래픽은 비슷 (이동 dedup 안 하니까)
+- 본질적으로 **packet 수 자체를 줄여 backpressure 해소**
 
 ---
 

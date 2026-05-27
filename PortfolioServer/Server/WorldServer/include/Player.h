@@ -33,7 +33,7 @@ public:
     void OnMessage(PlayerMsg::Respawn const& msg);
 
 private:
-    static int32_t constexpr MAX_HP = 100;
+    static int32_t constexpr MAX_HP = 5000;
 
     std::weak_ptr<IOCPSession> const _session;
     SessionId const _sessionId;
