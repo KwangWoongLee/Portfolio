@@ -74,10 +74,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="include\ClientMetricsLogger.h" />
     <ClInclude Include="include\TestClientSession.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\ClientMetricsLogger.cpp" />
     <ClCompile Include="src\TestClientSession.cpp" />
   </ItemGroup>
   <ItemGroup>

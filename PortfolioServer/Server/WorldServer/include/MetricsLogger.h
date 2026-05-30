@@ -1,6 +1,6 @@
 #pragma once
 #include "CorePch.h"
-#include <fstream>
+#include "Logger.h"
 
 struct MetricsSample final
 {
@@ -12,27 +12,17 @@ struct MetricsSample final
     uint32_t _recvBytesPerSecond{};
     uint32_t _cpuPercent{};
     uint32_t _taskQueueSize{};
+    uint64_t _pendingSendBytesTotal{};
+    uint64_t _sendOverflowCount{};
 };
 
 class MetricsLogger final
+    : public Logger
 {
 public:
     using Singleton = Singleton<MetricsLogger>;
 
     bool Start(std::string const& filePath);
-    void Stop();
 
-    void Enqueue(MetricsSample sample);
-
-private:
-    void ThreadMain();
-    void WriteSample(MetricsSample const& sample);
-
-    std::ofstream _file;
-    std::atomic<bool> _stop{ false };
-    std::thread _thread;
-
-    std::mutex _mutex;
-    std::condition_variable _cv;
-    std::vector<MetricsSample> _pendingSamples;
+    void Enqueue(MetricsSample const& sample);
 };

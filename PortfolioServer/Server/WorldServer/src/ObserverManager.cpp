@@ -7,32 +7,11 @@
 #include "Metrics.h"
 #include "MetricsLogger.h"
 #include "TaskDispatcher.h"
+#include "ProcessInfo.h"
 
 namespace
 {
     auto constexpr CSV_LOG_INTERVAL = std::chrono::milliseconds(10000);
-
-    uint64_t FileTimeToUInt64(FILETIME const& ft)
-    {
-        return (static_cast<uint64_t>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
-    }
-
-    uint64_t GetCurrentProcessCpuTime100ns()
-    {
-        FILETIME creationTime{};
-        FILETIME exitTime{};
-        FILETIME kernelTime{};
-        FILETIME userTime{};
-        ::GetProcessTimes(::GetCurrentProcess(), &creationTime, &exitTime, &kernelTime, &userTime);
-        return FileTimeToUInt64(kernelTime) + FileTimeToUInt64(userTime);
-    }
-
-    uint32_t GetProcessorCount()
-    {
-        SYSTEM_INFO sysInfo{};
-        ::GetSystemInfo(&sysInfo);
-        return sysInfo.dwNumberOfProcessors;
-    }
 }
 
 void ObserverManager::Register(std::shared_ptr<ObserverSession> const& session)
@@ -54,7 +33,7 @@ void ObserverManager::PushSnapshot()
     auto const currentSendPacketCount = Metrics::g_sendPacketCount.load(std::memory_order_relaxed);
     auto const currentRecvByteCount = Metrics::g_recvByteCount.load(std::memory_order_relaxed);
     auto const currentSendByteCount = Metrics::g_sendByteCount.load(std::memory_order_relaxed);
-    auto const currentProcessCpuTime100ns = GetCurrentProcessCpuTime100ns();
+    auto const currentProcessCpuTime100ns = ProcessInfo::GetProcessCpuTime100ns();
 
     auto const elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - _lastSampleTime).count();
     auto const safeElapsedMs = (elapsedMs <= 0) ? 1 : elapsedMs;
@@ -64,12 +43,7 @@ void ObserverManager::PushSnapshot()
     auto const recvBytesPerSecond = static_cast<uint32_t>((currentRecvByteCount - _lastRecvByteCount) * 1000 / safeElapsedMs);
     auto const sendBytesPerSecond = static_cast<uint32_t>((currentSendByteCount - _lastSendByteCount) * 1000 / safeElapsedMs);
 
-    auto const cpuElapsed100ns = currentProcessCpuTime100ns - _lastProcessCpuTime100ns;
-    auto const realElapsed100ns = static_cast<uint64_t>(safeElapsedMs) * 10000;
-    static auto const processorCount = GetProcessorCount();
-    auto const cpuPercent = (0 != _lastProcessCpuTime100ns && 0 != realElapsed100ns)
-        ? static_cast<uint32_t>((cpuElapsed100ns * 100) / (realElapsed100ns * processorCount))
-        : 0;
+    auto const cpuPercent = ProcessInfo::ComputeCpuPercent(_lastProcessCpuTime100ns, currentProcessCpuTime100ns, safeElapsedMs);
 
     _lastSampleTime = currentTime;
     _lastRecvPacketCount = currentRecvPacketCount;
@@ -101,7 +75,9 @@ void ObserverManager::PushSnapshot()
         sample._recvBytesPerSecond = pkt._recvBytesPerSecond;
         sample._cpuPercent = pkt._cpuPercent;
         sample._taskQueueSize = pkt._queueLen;
-        MetricsLogger::Singleton::GetInstance().Enqueue(std::move(sample));
+        sample._pendingSendBytesTotal = Metrics::g_pendingSendBytesTotal.load(std::memory_order_relaxed);
+        sample._sendOverflowCount = Metrics::g_sendOverflowCount.load(std::memory_order_relaxed);
+        MetricsLogger::Singleton::GetInstance().Enqueue(sample);
 
         _lastCsvLogTime = currentTime;
     }

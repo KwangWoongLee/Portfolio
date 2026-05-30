@@ -1,6 +1,7 @@
 #include "CorePch.h"
 #include "IOCPSession.h"
 
+#include "DisconnectLogger.h"
 #include "IOCPSessionManager.h"
 #include "PacketTask.h"
 #include "SocketUtil.h"
@@ -39,26 +40,6 @@ void IOCPSession::Dispatch(Overlapped const* iocpEvent, uint32_t const numOfByte
     }
 }
 
-namespace
-{
-    char const* DisconnectReasonToString(EDisconnectReason const reason)
-    {
-        switch (reason)
-        {
-            case EDisconnectReason::None: return "None";
-            case EDisconnectReason::ExplicitCall: return "ExplicitCall";
-            case EDisconnectReason::RecvZero: return "RecvZero";
-            case EDisconnectReason::SendZero: return "SendZero";
-            case EDisconnectReason::RecvOverflow: return "RecvOverflow";
-            case EDisconnectReason::HandleError: return "HandleError";
-            case EDisconnectReason::InvalidState: return "InvalidState";
-            case EDisconnectReason::SendOverflow: return "SendOverflow";
-            case EDisconnectReason::InvalidOperation: return "InvalidOperation";
-        }
-        return "Unknown";
-    }
-}
-
 void IOCPSession::Disconnect(EDisconnectReason const reason)
 {
     auto expected = EIOCPSessionState::Connected;
@@ -67,16 +48,13 @@ void IOCPSession::Disconnect(EDisconnectReason const reason)
         return;
     }
 
-    static std::atomic<int> disconnectLogCount{ 0 };
-    auto const currentCount = disconnectLogCount.fetch_add(1);
-    if (currentCount < 50)
+    Metrics::OnDisconnect();
+    if (EDisconnectReason::SendOverflow == reason)
     {
-        std::cout << "[IOCPSession:" << _sessionId << "] Disconnect reason=" << DisconnectReasonToString(reason) << std::endl;
+        Metrics::OnSendOverflow();
     }
-    else if (0 == (currentCount % 200))
-    {
-        std::cout << "[IOCPSession] Disconnect count=" << currentCount << " last reason=" << DisconnectReasonToString(reason) << std::endl;
-    }
+
+    DisconnectLogger::Singleton::GetInstance().Log(_sessionId, reason);
 
     AsyncDisconnect();
 }
@@ -181,6 +159,7 @@ void IOCPSession::OnSendCompleted(uint32_t const transferred)
         std::scoped_lock lock(_sendMutex);
 
         _sendBuffer.CommitRead(transferred);
+        Metrics::OnPendingSendSub(transferred);
 
         _isSendPending = false;
         if (0 < _sendBuffer.GetReadableSize())
@@ -385,6 +364,7 @@ void IOCPSession::SendLocked(char const* buffer, uint32_t const contentSize)
     ::memcpy(_sendBuffer.GetWritePtr(), buffer, contentSize);
     _sendBuffer.CommitWrite(contentSize);
     Metrics::OnSendBytes(contentSize);
+    Metrics::OnPendingSendAdd(contentSize);
 
     if (not _isSendPending)
     {

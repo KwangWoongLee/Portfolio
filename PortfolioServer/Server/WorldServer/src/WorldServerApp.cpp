@@ -4,6 +4,7 @@
 #include "ObserverSession.h"
 #include "ObserverManager.h"
 #include "MetricsLogger.h"
+#include "DisconnectLogger.h"
 #include "IOCPSessionManager.h"
 #include "TimerManager.h"
 #include "ZoneManager.h"
@@ -16,6 +17,20 @@ auto constexpr OBSERVER_PUSH_INTERVAL = std::chrono::milliseconds(100);
 namespace
 {
     auto const METRICS_CSV_PATH = "metrics/server_metrics.csv";
+
+    std::string BuildDisconnectLogPath()
+    {
+        auto const now = std::chrono::system_clock::now();
+        auto const epochTime = std::chrono::system_clock::to_time_t(now);
+        std::tm localTime{};
+        ::localtime_s(&localTime, &epochTime);
+
+        std::ostringstream pathStream;
+        pathStream << "logs/server_"
+            << std::put_time(&localTime, "%Y%m%d")
+            << ".log";
+        return pathStream.str();
+    }
 }
 
 bool WorldServerApp::Init()
@@ -53,6 +68,12 @@ bool WorldServerApp::Init()
         return false;
     }
 
+    if (not DisconnectLogger::Singleton::GetInstance().Start(BuildDisconnectLogPath()))
+    {
+        std::cout << "[WorldServer] Failed to start DisconnectLogger" << std::endl;
+        return false;
+    }
+
     InitZones();
 
     TimerManager::Singleton::GetInstance().AddRepeatTimer(
@@ -73,6 +94,7 @@ void WorldServerApp::Run()
 
 void WorldServerApp::Stop()
 {
+    DisconnectLogger::Singleton::GetInstance().Stop();
     MetricsLogger::Singleton::GetInstance().Stop();
     _engine->Stop();
 }

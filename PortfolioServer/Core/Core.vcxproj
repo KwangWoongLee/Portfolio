@@ -23,6 +23,9 @@
     <ClInclude Include="include\Connector.h" />
     <ClInclude Include="include\CsvParser.h" />
     <ClInclude Include="include\CorePch.h" />
+    <ClInclude Include="include\DisconnectLogger.h" />
+    <ClInclude Include="include\Logger.h" />
+    <ClInclude Include="include\ProcessInfo.h" />
     <ClInclude Include="include\Engine.h" />
     <ClInclude Include="include\IOCP.h" />
     <ClInclude Include="include\IOCPObject.h" />
@@ -67,7 +70,9 @@
     </ClCompile>
     <ClCompile Include="src\CsvParser.cpp" />
     <ClCompile Include="src\Connector.cpp" />
+    <ClCompile Include="src\DisconnectLogger.cpp" />
     <ClCompile Include="src\Engine.cpp" />
+    <ClCompile Include="src\Logger.cpp" />
     <ClCompile Include="src\IOCP.cpp" />
     <ClCompile Include="src\IOCPSession.cpp" />
     <ClCompile Include="src\IOCPSessionManager.cpp" />
