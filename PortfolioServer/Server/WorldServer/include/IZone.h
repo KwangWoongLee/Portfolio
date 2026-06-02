@@ -6,7 +6,7 @@
 #include "WorldPackets.h"
 #include "ZoneMessages.h"
 
-class Player;
+class IOCPSession;
 
 enum class EZoneType : uint8_t
 {
@@ -26,11 +26,11 @@ public:
 
     ZoneId GetZoneId() const { return _zoneId; }
     EZoneType GetZoneType() const { return _zoneType; }
-    size_t GetPlayerCount() const { return _players.size(); }
+    size_t GetPlayerCount() const { return _actors.size(); }
 
     virtual void Update() = 0;
 
-    virtual bool Enter(std::shared_ptr<Player> const& player);
+    virtual bool Enter(ZoneMsg::PlayerEntered const& msg);
     virtual void Leave(ActorId const actorId);
 
     void OnActorMove(ActorId const actorId, Position const& oldPos, Position const& newPos);
@@ -39,6 +39,8 @@ public:
     void OnMessage(ZoneMsg::PlayerEntered const& msg);
     void OnMessage(ZoneMsg::PlayerLeft const& msg);
     void OnMessage(ZoneMsg::BroadcastInSightRequest const& msg);
+    void OnMessage(ZoneMsg::HpChanged const& msg);
+    void OnMessage(ZoneMsg::ActorDied const& msg);
 
     void GetSightSnapshot(ActorId const selfActorId, std::vector<ActorSnapshot>& outSnapshots) const;
     void CollectAllSnapshots(std::vector<ActorSnapshot>& outSnapshots) const;
@@ -51,13 +53,22 @@ public:
     void BroadcastInSight(Position const& center, Packet const& packet, ActorId const excludeActorId = INVALID_ACTOR_ID);
 
 protected:
-    std::shared_ptr<Player> FindPlayer(ActorId const actorId) const;
+    struct ZoneActorState final
+    {
+        ActorId _actorId{};
+        std::weak_ptr<IOCPSession> _session;
+        Position _position;
+        int32_t _hp{};
+    };
+
+    ZoneActorState* FindActor(ActorId const actorId);
+    ZoneActorState const* FindActor(ActorId const actorId) const;
 
     ZoneId _zoneId{};
     EZoneType _zoneType{};
 
     Grid _grid;
-    std::unordered_map<ActorId, std::shared_ptr<Player>> _players;
+    std::unordered_map<ActorId, ZoneActorState> _actors;
 
     std::atomic<std::shared_ptr<std::vector<ActorSnapshot> const>> _cachedSnapshot;
 };

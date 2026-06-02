@@ -3,7 +3,7 @@
 #include "Packet.h"
 #include "WorldTypes.h"
 
-class Player;
+class IOCPSession;
 
 // IZone가 처리하는 메시지 타입 모음.
 // Player → Zone 비동기 메시지로 변환할 때 사용 (zone 액터화).
@@ -19,7 +19,10 @@ namespace ZoneMsg
 
     struct PlayerEntered
     {
-        std::shared_ptr<Player> _player;
+        ActorId _actorId;
+        std::shared_ptr<IOCPSession> _session;
+        Position _position;
+        int32_t _hp{};
     };
 
     struct PlayerLeft
@@ -32,6 +35,21 @@ namespace ZoneMsg
     struct BroadcastInSightRequest
     {
         std::shared_ptr<Packet const> _packet;
+        Position _center;
+        ActorId _excludeActorId;
+    };
+
+    struct HpChanged
+    {
+        ActorId _actorId;
+        Position _center;
+        int32_t _hp{};
+        ActorId _excludeActorId;
+    };
+
+    struct ActorDied
+    {
+        ActorId _actorId;
         Position _center;
         ActorId _excludeActorId;
     };

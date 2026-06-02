@@ -14,7 +14,7 @@ public:
 
     InstanceId GetInstanceId() const { return _instanceId; }
     uint32_t GetDungeonId() const { return _dungeonId; }
-    bool IsEmpty() const { return _players.empty(); }
+    bool IsEmpty() const { return _actors.empty(); }
 
     void Update() override;
     void Leave(ActorId const entityId) override;

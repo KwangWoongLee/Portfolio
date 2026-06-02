@@ -12,7 +12,7 @@ public:
     {
         for (size_t i = 0; i < initialCapacity; ++i)
         {
-            _pool.emplace_back(new T());
+            _pool.emplace_back(AllocateStorage());
         }
     }
     ~ObjectPool()
@@ -20,7 +20,7 @@ public:
         std::scoped_lock lock(_mutex);
 	    for (auto* obj : _pool)
 	    {
-            delete obj;
+            DeallocateStorage(obj);
 	    }
 
         _pool.clear();
@@ -35,14 +35,38 @@ public:
         {
             auto* obj = _pool.back();
             _pool.pop_back();
-            return obj;
+            try
+            {
+                return new (obj) T(std::forward<ARGS>(args)...);
+            }
+            catch (...)
+            {
+                _pool.emplace_back(obj);
+                throw;
+            }
         }
 
-        return new T(std::forward<ARGS>(args)...);
+        auto* obj = AllocateStorage();
+        try
+        {
+            return new (obj) T(std::forward<ARGS>(args)...);
+        }
+        catch (...)
+        {
+            DeallocateStorage(obj);
+            throw;
+        }
     }
 
     void Release(T* obj)
     {
+        if (not obj)
+        {
+            return;
+        }
+
+        obj->~T();
+
         std::scoped_lock lock(_mutex);
         _pool.emplace_back(obj);
     }
@@ -61,6 +85,16 @@ public:
     }
 
 private:
+    static T* AllocateStorage()
+    {
+        return static_cast<T*>(::operator new(sizeof(T), std::align_val_t{ alignof(T) }));
+    }
+
+    static void DeallocateStorage(T* obj)
+    {
+        ::operator delete(obj, std::align_val_t{ alignof(T) });
+    }
+
     std::deque<T*> _pool;
     std::mutex _mutex;
 };

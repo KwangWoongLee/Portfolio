@@ -19,8 +19,8 @@
 ## 구현 계획 및 진행
 
 1. **네트워크 라이브러리**
-   - IOCP 기반 비동기 I/O, 세션 관리, 워커 스레드 풀
-   - 워크로드 성격별 스레드 풀 분리 (GameLogic / NetworkIO / DB / Timer)
+   - IOCP 기반 비동기 I/O, 세션 관리, IOCP completion worker pool
+   - IOCP completion 수집과 패킷 처리 작업을 분리하고, 워크로드 성격별 스레드 풀 구성 (GameLogic / NetworkIO / DB / Timer)
 
 2. **Timer 시스템**
    - min-heap + condition_variable 기반 스케줄러

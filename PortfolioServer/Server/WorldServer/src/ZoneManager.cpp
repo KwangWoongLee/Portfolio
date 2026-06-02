@@ -95,7 +95,12 @@ bool ZoneManager::MovePlayer(std::shared_ptr<Player> const& player, ZoneId const
     }
 
     player->SetCurrentZoneId(toZoneId);
-    SendToZone(toZoneId, ZoneMsg::PlayerEntered{ player });
+    SendToZone(toZoneId, ZoneMsg::PlayerEntered{
+        player->GetActorId(),
+        player->GetSession(),
+        player->GetPosition(),
+        player->GetHp()
+    });
     return true;
 }
 
@@ -147,12 +152,21 @@ void ZoneManager::StartZoneTick(std::shared_ptr<IZone> const& zone)
     auto const timerId = TimerManager::Singleton::GetInstance().AddRepeatTimer(
         std::chrono::milliseconds(50),
         static_cast<int64_t>(zoneId),
-        [weakZone]()
+        [zoneId, weakZone]()
         {
-            if (auto const zone = weakZone.lock())
+            if (weakZone.expired())
             {
-                zone->Update();
+                return;
             }
+
+            PostToZone(zoneId,
+                [zoneId]()
+                {
+                    if (auto const zone = ZoneManager::Singleton::GetInstance().FindZone(zoneId))
+                    {
+                        zone->Update();
+                    }
+                });
         }
     );
 

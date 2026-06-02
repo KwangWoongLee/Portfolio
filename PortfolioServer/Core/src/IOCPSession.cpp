@@ -154,24 +154,16 @@ void IOCPSession::OnSendCompleted(uint32_t const transferred)
         return;
     }
 
-    bool isNeedToSend{ false };
+    std::scoped_lock lock(_sendMutex);
+
+    _sendBuffer.CommitRead(transferred);
+    Metrics::OnPendingSendSub(transferred);
+
+    _isSendPending = false;
+    if (0 < _sendBuffer.GetReadableSize())
     {
-        std::scoped_lock lock(_sendMutex);
-
-        _sendBuffer.CommitRead(transferred);
-        Metrics::OnPendingSendSub(transferred);
-
-        _isSendPending = false;
-        if (0 < _sendBuffer.GetReadableSize())
-        {
-            _isSendPending = true;
-            isNeedToSend = true;
-        }
-    }
-
-    if (isNeedToSend)
-    {
-        AsyncSend();
+        _isSendPending = true;
+        AsyncSendLocked();
 	}
 }
 
@@ -298,7 +290,7 @@ void IOCPSession::AsyncRecv()
     }
 }
 
-void IOCPSession::AsyncSend()
+void IOCPSession::AsyncSendLocked()
 {
     if (EIOCPSessionState::Connected != _state)
     {
@@ -323,6 +315,7 @@ void IOCPSession::AsyncSend()
         if (auto const err = WSAGetLastError(); WSA_IO_PENDING != err)
         {
             ObjectPool<Overlapped>::Singleton::GetInstance().Release(sendIoEvent);
+            _isSendPending = false;
             HandleError(err);
         }
     }
@@ -369,6 +362,6 @@ void IOCPSession::SendLocked(char const* buffer, uint32_t const contentSize)
     if (not _isSendPending)
     {
         _isSendPending = true;
-        AsyncSend();
+        AsyncSendLocked();
     }
 }

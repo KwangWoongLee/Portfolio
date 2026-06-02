@@ -49,7 +49,7 @@ void ClientSession::OnConnected()
 
     std::cout << "[ClientSession:" << GetSessionId() << "] Connected (actor=" << _actorId << ")" << std::endl;
 
-    // MovePlayer가 SendToZone(PlayerEntered)로 위임. Zone worker가 _players.emplace + W2CWelcome 송신.
+    // MovePlayer가 SendToZone(PlayerEntered)로 위임. Zone worker가 actor state 등록 + W2CWelcome 송신.
     ZoneManager::Singleton::GetInstance().MovePlayer(player, 1);
 }
 

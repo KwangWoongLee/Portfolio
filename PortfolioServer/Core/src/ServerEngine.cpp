@@ -6,6 +6,11 @@
 #include "TaskDispatcher.h"
 #include "TimerManager.h"
 
+namespace
+{
+	auto constexpr IOCP_WORKER_THREADS = 2;
+}
+
 ServerEngine::ServerEngine(std::shared_ptr<IOCP> const& iocp)
 	: Engine(iocp)
 {
@@ -42,7 +47,7 @@ void ServerEngine::Run(uint32_t const timeout)
 
 	TimerManager::Singleton::GetInstance().Start();
 
-	Engine::Run(timeout);
+	_iocp->RunWorkerPool(IOCP_WORKER_THREADS, timeout);
 }
 
 void ServerEngine::Stop()

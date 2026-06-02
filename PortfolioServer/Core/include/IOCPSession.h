@@ -107,7 +107,7 @@ private:
 
     void AsyncDisconnect();
     void AsyncRecv();
-    void AsyncSend();
+    void AsyncSendLocked();
     void HandleError(int32_t const errorCode);
 
     void SendLocked(char const* buffer, uint32_t const contentSize);

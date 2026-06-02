@@ -14,6 +14,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <format>
+#include <new>
 #include <memory>
 #include <thread>
 #include <mutex>
@@ -24,6 +25,7 @@
 #include <string_view>
 #include <array>
 #include <vector>
+#include <deque>
 #include <unordered_map>
 #include <atomic>
 #include <queue>

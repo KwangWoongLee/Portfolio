@@ -1,41 +1,44 @@
 #include "CorePch.h"
 #include "IZone.h"
-#include "Player.h"
+#include "IOCPSession.h"
 #include "WorldPackets.h"
 
 namespace
 {
-    W2CActorEnter MakeEnterPacket(Player const& player)
+    W2CActorEnter MakeEnterPacket(ActorId const actorId, Position const& position, int32_t const hp)
     {
         W2CActorEnter pkt;
-        pkt._actorId = player.GetActorId();
-        pkt._x = player.GetPosition()._x;
-        pkt._z = player.GetPosition()._z;
-        pkt._hp = player.GetHp();
+        pkt._actorId = actorId;
+        pkt._x = position._x;
+        pkt._z = position._z;
+        pkt._hp = hp;
         return pkt;
     }
 }
 
-bool IZone::Enter(std::shared_ptr<Player> const& player)
+bool IZone::Enter(ZoneMsg::PlayerEntered const& msg)
 {
-    auto const actorId = player->GetActorId();
+    auto const actorId = msg._actorId;
 
-    if (_players.contains(actorId))
+    if (_actors.contains(actorId))
     {
         return false;
     }
 
-    _players.emplace(actorId, player);
-    player->SetCurrentZoneId(_zoneId);
+    ZoneActorState state;
+    state._actorId = actorId;
+    state._session = msg._session;
+    state._position = msg._position;
+    state._hp = msg._hp;
 
-    auto const& pos = player->GetPosition();
-    _grid.Add(actorId, pos);
+    _actors.emplace(actorId, std::move(state));
+    _grid.Add(actorId, msg._position);
 
-    auto const selfPkt = MakeEnterPacket(*player);
-    BroadcastInSight(pos, selfPkt, actorId);
+    auto const selfPkt = MakeEnterPacket(actorId, msg._position, msg._hp);
+    BroadcastInSight(msg._position, selfPkt, actorId);
 
     std::cout << "[Zone:" << _zoneId << "] Player actor=" << actorId
-        << " entered (count=" << _players.size() << ")" << std::endl;
+        << " entered (count=" << _actors.size() << ")" << std::endl;
 
     return true;
 }
@@ -43,15 +46,15 @@ bool IZone::Enter(std::shared_ptr<Player> const& player)
 void IZone::UpdateSnapshotCache()
 {
     auto newSnapshot = std::make_shared<std::vector<ActorSnapshot>>();
-    newSnapshot->reserve(_players.size());
+    newSnapshot->reserve(_actors.size());
 
-    for (auto const& [id, player] : _players)
+    for (auto const& [id, actor] : _actors)
     {
         ActorSnapshot snap;
         snap._actorId = id;
-        snap._x = player->GetPosition()._x;
-        snap._z = player->GetPosition()._z;
-        snap._hp = player->GetHp();
+        snap._x = actor._position._x;
+        snap._z = actor._position._z;
+        snap._hp = actor._hp;
         newSnapshot->push_back(snap);
     }
 
@@ -60,29 +63,29 @@ void IZone::UpdateSnapshotCache()
 
 void IZone::CollectAllSnapshots(std::vector<ActorSnapshot>& outSnapshots) const
 {
-    outSnapshots.reserve(outSnapshots.size() + _players.size());
+    outSnapshots.reserve(outSnapshots.size() + _actors.size());
 
-    for (auto const& [id, player] : _players)
+    for (auto const& [id, actor] : _actors)
     {
         ActorSnapshot snap;
         snap._actorId = id;
-        snap._x = player->GetPosition()._x;
-        snap._z = player->GetPosition()._z;
-        snap._hp = player->GetHp();
+        snap._x = actor._position._x;
+        snap._z = actor._position._z;
+        snap._hp = actor._hp;
         outSnapshots.emplace_back(snap);
     }
 }
 
 void IZone::GetSightSnapshot(ActorId const selfActorId, std::vector<ActorSnapshot>& outSnapshots) const
 {
-    auto const iter = _players.find(selfActorId);
-    if (_players.end() == iter)
+    auto const iter = _actors.find(selfActorId);
+    if (_actors.end() == iter)
     {
         return;
     }
 
     std::vector<ActorId> nearbyIds;
-    _grid.GetNearbyActorIds(iter->second->GetPosition(), nearbyIds);
+    _grid.GetNearbyActorIds(iter->second._position, nearbyIds);
 
     outSnapshots.reserve(outSnapshots.size() + nearbyIds.size());
 
@@ -92,41 +95,41 @@ void IZone::GetSightSnapshot(ActorId const selfActorId, std::vector<ActorSnapsho
         {
             continue;
         }
-        auto const playerIter = _players.find(otherId);
-        if (_players.end() == playerIter)
+        auto const actorIter = _actors.find(otherId);
+        if (_actors.end() == actorIter)
         {
             continue;
         }
-        auto const& other = *playerIter->second;
+        auto const& other = actorIter->second;
 
         ActorSnapshot snap;
         snap._actorId = otherId;
-        snap._x = other.GetPosition()._x;
-        snap._z = other.GetPosition()._z;
-        snap._hp = other.GetHp();
+        snap._x = other._position._x;
+        snap._z = other._position._z;
+        snap._hp = other._hp;
         outSnapshots.emplace_back(snap);
     }
 }
 
 void IZone::Leave(ActorId const actorId)
 {
-    auto const iter = _players.find(actorId);
-    if (_players.end() == iter)
+    auto const iter = _actors.find(actorId);
+    if (_actors.end() == iter)
     {
         return;
     }
 
-    auto const& pos = iter->second->GetPosition();
+    auto const pos = iter->second._position;
 
     W2CActorLeave selfPkt;
     selfPkt._actorId = actorId;
     BroadcastInSight(pos, selfPkt, actorId);
 
     _grid.Remove(actorId, pos);
-    _players.erase(iter);
+    _actors.erase(iter);
 
     std::cout << "[Zone:" << _zoneId << "] Actor=" << actorId
-        << " left (count=" << _players.size() << ")" << std::endl;
+        << " left (count=" << _actors.size() << ")" << std::endl;
 }
 
 void IZone::OnMessage(ZoneMsg::ActorMoved const& msg)
@@ -142,17 +145,19 @@ void IZone::OnMessage(ZoneMsg::ActorMoved const& msg)
 
 void IZone::OnMessage(ZoneMsg::PlayerEntered const& msg)
 {
-    auto const& player = msg._player;
-    Enter(player);
+    if (not Enter(msg))
+    {
+        return;
+    }
 
     W2CWelcome welcomePacket;
-    welcomePacket._actorId = player->GetActorId();
-    welcomePacket._x = player->GetPosition()._x;
-    welcomePacket._z = player->GetPosition()._z;
+    welcomePacket._actorId = msg._actorId;
+    welcomePacket._x = msg._position._x;
+    welcomePacket._z = msg._position._z;
 
-    GetSightSnapshot(player->GetActorId(), welcomePacket._nearby);
+    GetSightSnapshot(msg._actorId, welcomePacket._nearby);
 
-    if (auto const session = player->GetSession())
+    if (auto const session = msg._session)
     {
         session->SendPacket(welcomePacket);
         session->FlushPacketStream();
@@ -169,22 +174,57 @@ void IZone::OnMessage(ZoneMsg::BroadcastInSightRequest const& msg)
     BroadcastInSight(msg._center, *msg._packet, msg._excludeActorId);
 }
 
+void IZone::OnMessage(ZoneMsg::HpChanged const& msg)
+{
+    auto const actor = FindActor(msg._actorId);
+    auto center = msg._center;
+    if (actor)
+    {
+        actor->_hp = msg._hp;
+        center = actor->_position;
+    }
+
+    W2CHpUpdate packet;
+    packet._actorId = msg._actorId;
+    packet._hp = msg._hp;
+    BroadcastInSight(center, packet, msg._excludeActorId);
+}
+
+void IZone::OnMessage(ZoneMsg::ActorDied const& msg)
+{
+    auto const actor = FindActor(msg._actorId);
+    auto center = msg._center;
+    if (actor)
+    {
+        center = actor->_position;
+    }
+
+    W2CDeath packet;
+    packet._actorId = msg._actorId;
+    BroadcastInSight(center, packet, msg._excludeActorId);
+}
+
 void IZone::OnActorMove(ActorId const actorId, Position const& oldPos, Position const& newPos)
 {
-    _grid.Move(actorId, oldPos, newPos);
+    (void)oldPos;
 
-    auto const self = FindPlayer(actorId);
+    auto const self = FindActor(actorId);
     if (not self)
     {
         return;
     }
 
+    auto const prevPos = self->_position;
+    self->_position = newPos;
+
+    _grid.Move(actorId, prevPos, newPos);
+
     std::vector<ActorId> enteredIds;
     std::vector<ActorId> leftIds;
-    _grid.GetSightDiff(newPos, oldPos, enteredIds, leftIds);
+    _grid.GetSightDiff(newPos, prevPos, enteredIds, leftIds);
 
-    auto const selfSession = self->GetSession();
-    auto const selfEnterPkt = MakeEnterPacket(*self);
+    auto const selfSession = self->_session.lock();
+    auto const selfEnterPkt = MakeEnterPacket(actorId, self->_position, self->_hp);
 
     W2CActorLeave selfLeavePkt;
     selfLeavePkt._actorId = actorId;
@@ -195,7 +235,7 @@ void IZone::OnActorMove(ActorId const actorId, Position const& oldPos, Position 
         {
             continue;
         }
-        auto const other = FindPlayer(otherId);
+        auto const other = FindActor(otherId);
         if (not other)
         {
             continue;
@@ -203,13 +243,15 @@ void IZone::OnActorMove(ActorId const actorId, Position const& oldPos, Position 
 
         if (selfSession)
         {
-            auto const otherPkt = MakeEnterPacket(*other);
+            auto const otherPkt = MakeEnterPacket(otherId, other->_position, other->_hp);
             selfSession->SendPacket(otherPkt);
+            selfSession->FlushPacketStream();
         }
 
-        if (auto const otherSession = other->GetSession())
+        if (auto const otherSession = other->_session.lock())
         {
             otherSession->SendPacket(selfEnterPkt);
+            otherSession->FlushPacketStream();
         }
     }
 
@@ -219,7 +261,7 @@ void IZone::OnActorMove(ActorId const actorId, Position const& oldPos, Position 
         {
             continue;
         }
-        auto const other = FindPlayer(otherId);
+        auto const other = FindActor(otherId);
         if (not other)
         {
             continue;
@@ -230,22 +272,25 @@ void IZone::OnActorMove(ActorId const actorId, Position const& oldPos, Position 
             W2CActorLeave otherPkt;
             otherPkt._actorId = otherId;
             selfSession->SendPacket(otherPkt);
+            selfSession->FlushPacketStream();
         }
 
-        if (auto const otherSession = other->GetSession())
+        if (auto const otherSession = other->_session.lock())
         {
             otherSession->SendPacket(selfLeavePkt);
+            otherSession->FlushPacketStream();
         }
     }
 }
 
 void IZone::Broadcast(Packet const& packet)
 {
-    for (auto const& [id, player] : _players)
+    for (auto const& [id, actor] : _actors)
     {
-        if (auto const session = player->GetSession())
+        if (auto const session = actor._session.lock())
         {
             session->SendPacket(packet);
+            session->FlushPacketStream();
         }
     }
 }
@@ -262,25 +307,36 @@ void IZone::BroadcastInSight(Position const& center, Packet const& packet, Actor
             continue;
         }
 
-        auto const iter = _players.find(actorId);
-        if (_players.end() == iter)
+        auto const iter = _actors.find(actorId);
+        if (_actors.end() == iter)
         {
             continue;
         }
 
-        if (auto const session = iter->second->GetSession())
+        if (auto const session = iter->second._session.lock())
         {
             session->SendPacket(packet);
+            session->FlushPacketStream();
         }
     }
 }
 
-std::shared_ptr<Player> IZone::FindPlayer(ActorId const actorId) const
+IZone::ZoneActorState* IZone::FindActor(ActorId const actorId)
 {
-    auto const iter = _players.find(actorId);
-    if (_players.end() == iter)
+    auto const iter = _actors.find(actorId);
+    if (_actors.end() == iter)
     {
         return nullptr;
     }
-    return iter->second;
+    return &iter->second;
+}
+
+IZone::ZoneActorState const* IZone::FindActor(ActorId const actorId) const
+{
+    auto const iter = _actors.find(actorId);
+    if (_actors.end() == iter)
+    {
+        return nullptr;
+    }
+    return &iter->second;
 }
