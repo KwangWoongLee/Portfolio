@@ -1,203 +1,224 @@
-# Portfolio Server Project
+# C++ MMORPG Live Server Portfolio
 
-포트폴리오 제작을 위한 C++ 게임 서버 프로젝트 저장소입니다.  
-학생 시절부터 개발해 온 IOCP 기반 네트워크 코어를 현재 지식 수준에 맞게 리팩터링하고,  
-간단한 멀티 서버 구조(월드/상위 서버)와 콘텐츠를 구현하는 것을 목표로 합니다.
+대형 온라인 RPG 서버 직무에서 요구하는 C++ 비동기 네트워크, 라이브 콘텐츠, DB 정합성, 운영 대응 역량을 보여주기 위한 포트폴리오입니다.
 
----
+핵심 목표는 단순 샘플 서버가 아니라, **라이브 MMORPG 서버에서 자주 마주치는 네트워크, 비동기 처리, 월드/존 동시성, 콘텐츠 상태 관리, 운영 지표 분석**을 코드와 문서로 설명할 수 있게 만드는 것입니다.
 
-## 개발 및 테스트 환경
-
-- OS : Windows 10 / 11 (64-bit)
-- CPU : Intel Core i5-12400F
-- RAM : 32GB
-- IDE : Visual Studio 2022 Community
-- 언어 : C++23 (`/std:c++latest`)
+현재 구현은 IOCP 기반 네트워크 코어와 Actor/Zone 실행 모델, 부하 테스트 및 메트릭 분석에 집중되어 있습니다. 1개월 완성 목표로 공성전 상태 머신, 보상/상품 흐름, MySQL 스키마와 라이브 이슈 대응 문서를 추가할 예정입니다.
 
 ---
 
-## 구현 계획 및 진행
+## 라이브 MMORPG 서버 역량 매핑
 
-1. **네트워크 라이브러리**
-   - IOCP 기반 비동기 I/O, 세션 관리, IOCP completion worker pool
-   - IOCP completion 수집과 패킷 처리 작업을 분리하고, 워크로드 성격별 스레드 풀 구성 (GameLogic / NetworkIO / DB / Timer)
+라이브 MMORPG 서버 직무에서 자주 요구되는 항목을 아래 구현 범위와 연결합니다.
 
-2. **Timer 시스템**
-   - min-heap + condition_variable 기반 스케줄러
-   - 일회성 / 반복 타이머, TaskDispatcher 연동
-   - 콘텐츠 시간 이벤트(공성전 phase 등) 처리용
-
-3. **CMS (기획 데이터 관리)**
-   - CSV 파서 + 도메인 ID 타입 안전 처리(`StrongId<Tag, Value>`)
-
-4. **Memory Transaction**
-   - Undo Log 기반 원자적 메모리 변경
-   - 즉시 Apply, 부분 실패 시 역순 Rollback, 성공 시 DB 반영
-
-5. **Actor 모델 동시성**
-   - 액터(`ActorId` 키) 단위 단일 스레드 직렬 처리 (`KeySerialTaskExecutor`)
-   - Typed Message 처리
-
-6. **월드 서버**
-   - Zone / Instance 구조, Grid 기반 시야 처리
-   - `Player` / `PlayerManager`를 액터 모델로 통합 완료
-   - `Zone`을 액터화 (`SendToZone` 메시지 디스패치) — `_players`/`_grid` 접근을 zone worker로 단일화하여 race-free
-   - 시야 입출입 (W2CActorEnter/Leave) + Welcome 진입 스냅샷
-
-7. **부하 측정 및 시각화 인프라**
-   - 비동기 logger thread + 큐로 메트릭 CSV 저장 (worker 차단 없음)
-   - `Metrics`: send/recv packet count, byte count, CPU%, queue size
-   - 옵저버 채널 + Raylib 기반 자체 시각화 도구 (`Viewer`) — 액터 위치/시야 + 실시간 메트릭
-   - Grafana 시계열 대시보드 연동 (CSV datasource)
-   - 자세한 측정 결과: [PortfolioServer/measurements.md](PortfolioServer/measurements.md)
-
-8. **공성전 콘텐츠** (예정)
-
-9. **상위 서버군** (예정)
-   - World ↔ Universe 서버 간 통신, 이벤트 전파
+| 핵심 역량 | 현재 포트폴리오 대응 |
+|---|---|
+| C/C++, 자료구조, 알고리즘 | IOCP 서버 코어, LinearBuffer, Stream, ObjectPool, Grid 기반 시야 처리 |
+| 비동기/네트워크/소켓 프로그래밍 | IOCP, AcceptEx/WSARecv/WSASend, completion worker pool, session lifecycle |
+| 라이브 서비스 콘텐츠 개발 | World/Zone, Player, 이동/공격/HP/사망, 공성전 시스템 추가 예정 |
+| MySQL/SQL 이해 | 2~3주차에 MySQL schema와 보상/공성전 저장 흐름 추가 예정 |
+| 디버깅과 이슈 추적 | race condition, SendOverflow, backpressure 측정 narrative 문서화 |
+| 최적화/리팩토링 | Zone actor화, single zone bottleneck 분석, tick batching 설계 |
+| 운영툴/각종 툴 개발 | Observer channel, metrics logger, Raylib Viewer(optional), Grafana CSV 연동 |
 
 ---
 
-## 측정 narrative
+## 현재 구현 범위
 
-자세한 단계별 측정 기록은 [PortfolioServer/measurements.md](PortfolioServer/measurements.md) 참고.
+### 1. IOCP 네트워크 코어
 
-### 1. 시작점 — 락 없는 zone에서 race condition
+- IOCP 기반 비동기 I/O
+- Listener / Connector / IOCPSession 구조
+- Accept, Connect, Recv, Send, Disconnect completion 처리
+- IOCP completion worker pool
+- Packet receive task와 game logic task 분리
+- send/recv buffer overflow 감지 및 disconnect reason 기록
 
-초기 zone은 `_players`/`_grid` 자료구조에 락을 두지 않은 채 여러 worker thread에서 접근. 1000봇 부하 시 `unordered_map` iterator invalidation으로 access violation crash.
+관련 코드:
 
-### 2. Zone 완전 액터화
+- `PortfolioServer/Core/include/IOCP.h`
+- `PortfolioServer/Core/src/IOCP.cpp`
+- `PortfolioServer/Core/include/IOCPSession.h`
+- `PortfolioServer/Core/src/IOCPSession.cpp`
+- `PortfolioServer/Core/include/LinearBuffer.h`
+- `PortfolioServer/Core/include/Stream.h`
 
-모든 zone 접근을 `SendToZone(zoneId, msg)` 메시지로 단일화.
+### 2. TaskDispatcher와 Actor 실행 모델
 
-- `ZoneMsg::ActorMoved` / `PlayerEntered` / `PlayerLeft` / `BroadcastInSightRequest`
-- `KeySerialTaskExecutor`의 `taskKey % threadCount`로 같은 zone은 항상 같은 worker에서 직렬 처리
-- `_players`/`_grid` 수정은 zone worker만 → race-free
-- 옵저버용 read는 `atomic<shared_ptr<vector<ActorSnapshot> const>>` 캐시로 lock-free (RCU 비슷한 패턴)
+- 작업 성격별 executor 구성: `GameLogic`, `NetworkIO`, `DB`, `Timer`
+- `KeySerialTaskExecutor`로 같은 key의 작업을 같은 worker에서 직렬 처리
+- Player와 Zone을 actor-like 메시지 처리 흐름으로 분리
+- Manager는 registry/lifecycle을 lock으로 관리하고, 내부 객체 변경은 `ManagedActorTaskAccess` 기반 Runner로만 실행
+- 공유 상태 접근을 특정 worker로 모아 race condition을 줄이는 구조
 
-### 3. Spawn 차원 측정 (1프로세스 2000봇)
+관련 코드:
 
-| Spawn 반경 | 끊긴 봇 | 한 봇 시야 안 평균 |
-|---|---|---|
-| 100 | ~1891 | ~2000 (전체) |
-| 200 | ~510 | ~800 |
-| 300 | 0 | ~50 |
+- `PortfolioServer/Core/include/TaskDispatcher.h`
+- `PortfolioServer/Core/src/TaskDispatcher.cpp`
+- `PortfolioServer/Core/include/KeySerialTaskExecutor.h`
+- `PortfolioServer/Common/include/ManagedActorTaskAccess.h`
+- `PortfolioServer/Common/include/ActorTask.h`
+- `PortfolioServer/Server/WorldServer/include/ZoneTask.h`
 
-좁은 spawn = 한 시야에 봇 몰림 = O(N²) broadcast. 한 봇 시야 안 ~800명에서 `SendOverflow` 발생.
+### 3. World / Zone 서버 구조
 
-### 4. SendOverflow 원인 — TCP backpressure
+- FieldZone / InstanceZone 구분
+- Grid 기반 시야 처리
+- player enter/leave, move, attack, HP change, death event 처리
+- Welcome snapshot과 actor enter/leave packet
+- Zone 내부 상태는 zone worker에서만 수정
+- Observer read와 player count 조회는 snapshot/atomic cache로 분리
+- ZoneManager의 zone/instance registry는 `shared_mutex`로 보호
+- 인스턴스 제거는 manager lock 밖에서 후보를 모은 뒤 zone worker에서 empty 여부를 재확인
+- 외부에는 raw zone lookup을 공개하지 않고 `PostToZone`/`SendToZone`/snapshot API만 사용
+- zone 입장은 `Open` 상태에서 발급한 enter permit이 있을 때만 진행하고, 실제 enter 성공 후 player current zone을 확정
 
-처음엔 server 한계로 오해. 실제 원인 분석:
+관련 코드:
 
-```
-[데이터 흐름]
-Server SendPacket → _sendBuffer (64KB)
-    ↓ WSASend
-  Kernel send buffer (OS)
-    ↓ TCP
-  Network (loopback)
-    ↓
-  Kernel recv buffer (Client OS)
-    ↓ WSARecv
-  Client _recvBuffer
-    ↓
-  Client 처리 (NetworkIO worker)
-```
+- `PortfolioServer/Server/WorldServer/include/IZone.h`
+- `PortfolioServer/Server/WorldServer/src/IZone.cpp`
+- `PortfolioServer/Server/WorldServer/include/ZoneManager.h`
+- `PortfolioServer/Server/WorldServer/src/ZoneManager.cpp`
+- `PortfolioServer/Server/WorldServer/include/PlayerTaskRunner.h`
+- `PortfolioServer/Server/WorldServer/include/ZoneTaskRunner.h`
+- `PortfolioServer/Server/WorldServer/include/Grid.h`
 
-**Client 측이 못 따라가면 위로 backpressure 전파**:
+### 4. CMS 성격의 기획 데이터 로딩
 
-1. Client NetworkIO worker가 매초 ~40만 packet 처리 못 함
-2. Client `_recvBuffer` 적체 → WSARecv pending
-3. Client kernel recv buffer 가득 → TCP가 ACK 안 보냄 (window=0)
-4. Server 측: client 못 받는다고 인식, kernel send buffer 가득
-5. Server `OnSendCompleted` 늦음 → `_sendBuffer` 안 비워짐
-6. 다음 SendPacket 호출 시 `_sendBuffer.GetWritableSize() < contentSize`
-7. `Disconnect(EDisconnectReason::SendOverflow)` 호출
+- CSV parser 기반 데이터 로딩
+- `StrongId<Tag, Value>`로 도메인 ID 타입 분리
+- 공성전 데이터와 스케줄 데이터 샘플 로딩
 
-즉 server `SendOverflow`는 결과고, **진짜 원인은 client recv 처리 한계**.
+관련 코드:
 
-### 5. Client 분산이 해결한 이유
+- `PortfolioServer/Common/include/CmsManager.h`
+- `PortfolioServer/Common/src/CmsManager.cpp`
+- `PortfolioServer/Common/data/SiegeWar.csv`
+- `PortfolioServer/Common/data/SiegeSchedule.csv`
 
-| 구성 | 끊긴 봇 | 비고 |
-|---|---|---|
-| 1프로세스 × 2000봇 | 510 | client 한계 |
-| 6프로세스 × 500봇 | 0 (game) | server 여유 |
+### 5. 부하 테스트와 관찰성
 
-**왜 분산이 효과적인가**:
-- 1프로세스 NetIO=8 → CPU 12% (16 core 중 ~2 core만 사용, 나머지 IO wait)
-- 6프로세스 × NetIO=4 = 총 24 worker → CPU 코어 더 분산 활용
-- 각 프로세스 독립 메모리/cache → cache miss 감소
-- TCP 흐름 정상 → server `_sendBuffer` 안 차게 됨
+- TestClient 부하 봇
+- Observer channel로 actor snapshot과 metrics 전송
+- CSV metrics logging
+- Grafana CSV datasource 연동
+- SendOverflow, pending send bytes, packet count, byte count, queue size 기록
 
-**시사점**: 부하 테스트 도구는 분산 형태가 정석 (Locust, k6 등). localhost loopback에서는 client/server가 동일 머신 자원 경쟁이라 분산이 필수.
+자세한 측정 기록:
 
-### 6. 진짜 server 한계 — 단일 zone worker
-
-분산으로 client 한계 해소 후 server 한계 측정:
-
-| 봇 수 | sendBps | queueSize | Server CPU |
-|---|---|---|---|
-| 3000 | 60~73 MB/s | 0~103 | 4~7% |
-| 3500 | 80~96 MB/s | 251~1,460 | 5~6% |
-| **4000** | 80~87 MB/s | **5천 → 20만** | 6~8% |
-
-**CPU 6%에도 queue 폭발**:
-- 모든 봇이 zone 1에 들어감 (한 zone만 활용)
-- `KeySerialTaskExecutor`의 `taskKey % threadCount`는 zone 수가 적으면 분산 효과 없음
-- 단일 zone worker thread 1개가 4000봇 메시지 전부 처리 → 한 CPU 코어 풀가동
-- 다른 worker는 놀고 있음
-
-### 7. 해결 방향 (다음 단계)
-
-- **Zone 분할**: 큰 zone 1개 → 작은 zone N개로 분할, worker N개 활용
-- **Tick batching**: 매 broadcast마다 즉시 송신 X, zone tick(50ms)에 모인 이벤트들을 batch packet 1개로 묶어 송신
-- **Shared queue / work stealing 후보 제외**: 같은 key 직렬화 보장 깨져 액터 모델 무너짐 → race 회귀
-
-### 8. Tick batching 세부 설계
-
-모든 broadcast를 종류별 버퍼에 모으고 zone tick에 한 번에 송신:
-
-| 데이터 종류 | dedup? | 이유 |
-|---|---|---|
-| 이동 (Move) | **X (모두 송신)** | sequence event — 경로 정보가 시각적 의미. dedup하면 위치렉 발생 |
-| 상태값 (HP/MP/Buff) | **O (마지막만)** | idempotent — 마지막 값이 곧 현재 상태 |
-| 이벤트 (공격/데미지/사망) | **X (모두 송신)** | 누락 시 게임 로직 오류 |
-
-```cpp
-// Zone 내부 (zone worker만 접근 → lock 불필요)
-std::vector<ActorMove> _pendingMoves;            // dedup X
-std::unordered_map<ActorId, HpUpdate> _pendingHpUpdates;  // dedup O (key=ActorId)
-std::vector<DamageEvent> _pendingDamages;        // dedup X
-
-void IZone::Update() {  // tick (50ms)
-    UpdateSnapshotCache();
-    FlushPendingMoves();        // → W2CMoveBatch
-    FlushPendingHpUpdates();    // → W2CHpUpdateBatch
-    FlushPendingDamages();      // → W2CDamageBatch
-}
-```
-
-**효과 예상**:
-- SendPacket 호출 횟수 1/N (N=50ms tick 안 평균 이벤트 수)
-- 한 봇 받는 packet 수 감소 → client recv 처리 부담 해소
-- Byte 트래픽은 비슷 (이동 dedup 안 하니까)
-- 본질적으로 **packet 수 자체를 줄여 backpressure 해소**
+- `PortfolioServer/measurements.md`
+- `PortfolioServer/docs/live-issue-case.md`
 
 ---
 
-## 향후 확장 아이디어
+## 대표 분석 사례
 
-1. **DB 연동**
-   - MSSQL 연동
-   - 콘텐츠 상태, 유저 / 길드 정보, 매치 / 랭킹 데이터 저장 및 조회
+### Zone race condition
 
-2. **웹 서버 활용** (고민)
+초기 구조에서는 여러 worker thread가 Zone의 `_players`, `_grid`를 직접 접근하면서 1000봇 부하 시 `unordered_map` iterator invalidation crash가 발생했습니다.
+
+해결 방향:
+
+- 모든 Zone 접근을 `SendToZone(zoneId, msg)` 메시지로 단일화
+- 같은 zone key는 항상 같은 worker에서 처리
+- `_players`, `_grid` 수정은 zone worker에서만 수행
+- Observer read는 atomic snapshot cache로 분리
+- Zone registry/lifecycle은 `ZoneManager`에서 짧은 lock으로 보호
+
+### SendOverflow와 TCP backpressure
+
+부하 테스트 중 server `SendOverflow`가 발생했지만, 분석 결과 직접 원인은 server send logic보다 client receive 처리 한계였습니다.
+
+분석 흐름:
+
+- client NetworkIO worker가 packet 처리량을 따라가지 못함
+- client recv buffer와 kernel recv buffer가 밀림
+- TCP window가 줄어 server kernel send buffer가 밀림
+- server `OnSendCompleted`가 늦어져 `_sendBuffer`가 비워지지 않음
+- 다음 `SendPacket`에서 `SendOverflow` 발생
+
+이 과정은 `measurements.md`에 측정 조건별로 정리했습니다.
 
 ---
 
-## 라이선스 / 참고
+## 라이브 서버 완성도를 높이기 위한 추가 작업
 
-- 이 프로젝트는 **개인 포트폴리오 및 학습 목적**의 프로젝트입니다.
-- IOCP 네트워크 코어는 학생 시절부터 작성해 온 개인 코드를  
-  현재 지식 수준으로 리팩터링한 것이며,  
-  **현재 재직 중인 회사의 소스 코드는 포함하지 않습니다.**
+1개월 완성 목표로 아래 기능을 추가합니다.
+
+### 1. 공성전 서버 상태 머신
+
+- Scheduled / Ready / InProgress / Rewarding / Finished / Canceled
+- 스케줄 로딩
+- GM 명령 기반 강제 시작/종료
+- 참여자/진영/길드 등록
+- 점령 점수, 킬/데스, 기여도 누적
+- 종료 시 랭킹 계산
+
+문서:
+
+- `PortfolioServer/docs/siege-system.md`
+
+### 2. 보상/상품/DB 흐름
+
+- 공성전 종료 보상 생성
+- reward claim 중복 수령 방지
+- transaction / rollback / idempotency 흐름
+- MySQL schema와 repository interface
+
+문서:
+
+- `PortfolioServer/docs/db-and-reward.md`
+
+### 3. 라이브 이슈 대응 문서
+
+- 공성전 종료 중 서버 재시작
+- 보상 중복 요청
+- 대규모 전투 중 broadcast 폭증
+- packet validation, rate limit, disconnect reason 분석
+
+문서:
+
+- `PortfolioServer/docs/live-issue-case.md`
+
+---
+
+## 빌드 구성
+
+개발 환경:
+
+- Windows 10 / 11 x64
+- Visual Studio 2022
+- C++23 (`/std:c++latest`)
+- Release x64 기준 측정
+
+필수 빌드 대상:
+
+- `Core`
+- `Common`
+- `WorldServer`
+- `TestClient`
+
+선택 빌드 대상:
+
+- `Viewer`
+  - Raylib 기반 관찰용 클라이언트입니다.
+  - `raylib.h`와 `raylib.lib`가 필요하므로 기본 솔루션 빌드 대상에서는 제외합니다.
+
+---
+
+## 문서
+
+- `PortfolioServer/docs/architecture.md`
+- `PortfolioServer/docs/siege-system.md`
+- `PortfolioServer/docs/db-and-reward.md`
+- `PortfolioServer/docs/live-issue-case.md`
+- `PortfolioServer/measurements.md`
+
+---
+
+## 참고
+
+이 프로젝트는 개인 포트폴리오 및 학습 목적의 프로젝트입니다.
+
+IOCP 네트워크 코어는 학생 시절부터 작성해 온 개인 코드를 현재 지식 수준에 맞게 리팩터링한 것이며, 재직 중인 회사의 소스 코드나 내부 데이터를 포함하지 않습니다.

@@ -16,15 +16,21 @@ public:
     }
 
     SessionId GetSessionId() const { return _sessionId; }
+    void OnPacket(uint16_t const packetId, std::vector<uint8_t> const& payload);
+
+private:
+    friend class PlayerTaskRunner;
+
     std::shared_ptr<IOCPSession> GetSession() const { return _session.lock(); }
 
     ZoneId GetCurrentZoneId() const { return _currentZoneId; }
     void SetCurrentZoneId(ZoneId const zoneId) { _currentZoneId = zoneId; }
 
+    ZoneId GetPendingZoneId() const { return _pendingZoneId; }
+    void SetPendingZoneId(ZoneId const zoneId) { _pendingZoneId = zoneId; }
+
     int32_t GetHp() const { return _hp; }
     bool IsDead() const { return _hp <= 0; }
-
-    void OnPacket(uint16_t const packetId, std::vector<uint8_t> const& payload);
 
     void OnMessage(PlayerMsg::MoveRequest const& msg);
     void OnMessage(PlayerMsg::AttackRequest const& msg);
@@ -32,11 +38,11 @@ public:
     void OnMessage(PlayerMsg::Healed const& msg);
     void OnMessage(PlayerMsg::Respawn const& msg);
 
-private:
     static int32_t constexpr MAX_HP = 5000;
 
     std::weak_ptr<IOCPSession> const _session;
     SessionId const _sessionId;
     ZoneId _currentZoneId{ INVALID_ZONE_ID };
+    ZoneId _pendingZoneId{ INVALID_ZONE_ID };
     int32_t _hp{};
 };

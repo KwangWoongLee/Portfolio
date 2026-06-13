@@ -7,7 +7,7 @@ namespace
     auto constexpr SPAWN_AREA_HALF_EXTENT = 1000.0f;
 }
 
-std::shared_ptr<Player> PlayerManager::Create(std::shared_ptr<IOCPSession> const& session)
+ActorId PlayerManager::Create(std::shared_ptr<IOCPSession> const& session)
 {
     static thread_local std::mt19937 rng(std::random_device{}());
     static thread_local std::uniform_real_distribution<float> dist(
@@ -20,16 +20,16 @@ std::shared_ptr<Player> PlayerManager::Create(std::shared_ptr<IOCPSession> const
     std::unique_lock lock(_mutex);
     _players.emplace(actorId, player);
 
-    return player;
+    return actorId;
 }
 
-void PlayerManager::Remove(ActorId const actorId)
+void PlayerManager::RemoveInternal(ActorId const actorId)
 {
     std::unique_lock lock(_mutex);
     _players.erase(actorId);
 }
 
-std::shared_ptr<Player> PlayerManager::Find(ActorId const actorId) const
+std::shared_ptr<Player> PlayerManager::FindInternal(ActorId const actorId) const
 {
     std::shared_lock lock(_mutex);
 

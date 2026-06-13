@@ -86,6 +86,7 @@
     <ClInclude Include="include\PlayerManager.h" />
     <ClInclude Include="include\PlayerMessages.h" />
     <ClInclude Include="include\PlayerPost.h" />
+    <ClInclude Include="include\PlayerTaskRunner.h" />
     <ClInclude Include="include\WorldServerApp.h" />
     <ClInclude Include="include\ClientSession.h" />
     <ClInclude Include="include\WorldTypes.h" />
@@ -93,6 +94,7 @@
     <ClInclude Include="include\ZoneMessages.h" />
     <ClInclude Include="include\ZonePost.h" />
     <ClInclude Include="include\ZoneTask.h" />
+    <ClInclude Include="include\ZoneTaskRunner.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />

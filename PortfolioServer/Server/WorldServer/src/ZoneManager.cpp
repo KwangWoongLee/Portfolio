@@ -2,19 +2,32 @@
 #include "ZoneManager.h"
 #include "FieldZone.h"
 #include "InstanceZone.h"
-#include "Player.h"
+#include "PlayerTaskRunner.h"
 #include "TimerManager.h"
 #include "ZonePost.h"
 
 void ZoneManager::CreateField(ZoneId const zoneId)
 {
-    if (_zones.contains(zoneId))
-    {
-        return;
-    }
+    std::shared_ptr<FieldZone> field;
 
-    auto field = std::make_shared<FieldZone>(zoneId);
-    _zones.emplace(zoneId, field);
+    {
+        std::unique_lock lock(_mutex);
+        if (_zones.contains(zoneId))
+        {
+            return;
+        }
+
+        field = std::make_shared<FieldZone>(zoneId);
+        ZoneRegistryEntry entry;
+        entry._zone = field;
+        entry._generation = AllocateZoneGeneration();
+        _zones.emplace(zoneId, std::move(entry));
+
+        if (_nextZoneId <= zoneId)
+        {
+            _nextZoneId = zoneId + 1;
+        }
+    }
 
     StartZoneTick(field);
 
@@ -23,12 +36,22 @@ void ZoneManager::CreateField(ZoneId const zoneId)
 
 InstanceId ZoneManager::CreateInstanceDungeon(uint32_t const dungeonId)
 {
-    auto const instanceId = _nextInstanceId++;
-    auto const zoneId = AllocateZoneId();
+    InstanceId instanceId{};
+    ZoneId zoneId{};
+    std::shared_ptr<InstanceZone> instance;
 
-    auto instance = std::make_shared<InstanceZone>(zoneId, instanceId, dungeonId);
-    _zones.emplace(zoneId, instance);
-    _instances.emplace(instanceId, instance);
+    {
+        std::unique_lock lock(_mutex);
+        instanceId = _nextInstanceId++;
+        zoneId = AllocateZoneId();
+
+        instance = std::make_shared<InstanceZone>(zoneId, instanceId, dungeonId);
+        ZoneRegistryEntry entry;
+        entry._zone = instance;
+        entry._generation = AllocateZoneGeneration();
+        _zones.emplace(zoneId, std::move(entry));
+        _instances.emplace(instanceId, instance);
+    }
 
     StartZoneTick(instance);
 
@@ -40,38 +63,67 @@ InstanceId ZoneManager::CreateInstanceDungeon(uint32_t const dungeonId)
 
 void ZoneManager::DestroyInstanceDungeon(InstanceId const instanceId)
 {
-    auto const iter = _instances.find(instanceId);
-    if (_instances.end() == iter)
+    ZoneId zoneId{};
+    TimerId timerId{};
+
     {
-        return;
+        std::unique_lock lock(_mutex);
+
+        auto const iter = _instances.find(instanceId);
+        if (_instances.end() == iter)
+        {
+            return;
+        }
+
+        zoneId = iter->second->GetZoneId();
+
+        if (auto const timerIter = _zoneTimers.find(zoneId); _zoneTimers.end() != timerIter)
+        {
+            timerId = timerIter->second;
+            _zoneTimers.erase(timerIter);
+        }
+
+        _zones.erase(zoneId);
+        _instances.erase(iter);
     }
 
-    auto const zoneId = iter->second->GetZoneId();
-
-    if (auto const timerIter = _zoneTimers.find(zoneId); _zoneTimers.end() != timerIter)
+    if (0 != timerId)
     {
-        TimerManager::Singleton::GetInstance().CancelTimer(timerIter->second);
-        _zoneTimers.erase(timerIter);
+        TimerManager::Singleton::GetInstance().CancelTimer(timerId);
     }
 
     std::cout << "[ZoneManager] InstanceDungeon " << instanceId << " destroyed" << std::endl;
-
-    _zones.erase(zoneId);
-    _instances.erase(iter);
 }
 
-std::shared_ptr<IZone> ZoneManager::FindZone(ZoneId const zoneId) const
+std::shared_ptr<IZone> ZoneManager::FindZoneInternal(ZoneId const zoneId) const
 {
+    std::shared_lock lock(_mutex);
+
     auto const iter = _zones.find(zoneId);
     if (_zones.end() == iter)
     {
         return nullptr;
     }
-    return iter->second;
+    return iter->second._zone;
 }
 
-std::shared_ptr<InstanceZone> ZoneManager::FindInstanceDungeon(InstanceId const instanceId) const
+std::shared_ptr<IZone> ZoneManager::FindZoneByPermit(ZoneEnterPermit const& permit) const
 {
+    std::shared_lock lock(_mutex);
+
+    auto const iter = _zones.find(permit._zoneId);
+    if (_zones.end() == iter || iter->second._generation != permit._generation)
+    {
+        return nullptr;
+    }
+
+    return iter->second._zone;
+}
+
+std::shared_ptr<InstanceZone> ZoneManager::FindInstanceDungeonInternal(InstanceId const instanceId) const
+{
+    std::shared_lock lock(_mutex);
+
     auto const iter = _instances.find(instanceId);
     if (_instances.end() == iter)
     {
@@ -80,44 +132,88 @@ std::shared_ptr<InstanceZone> ZoneManager::FindInstanceDungeon(InstanceId const 
     return iter->second;
 }
 
-bool ZoneManager::MovePlayer(std::shared_ptr<Player> const& player, ZoneId const toZoneId)
+std::optional<ZoneManager::ZoneEnterPermit> ZoneManager::TryReserveZoneEnter(ZoneId const zoneId)
 {
-    auto const toZone = FindZone(toZoneId);
-    if (not toZone)
+    std::unique_lock lock(_mutex);
+
+    auto iter = _zones.find(zoneId);
+    if (_zones.end() == iter || EZoneLifecycleState::Open != iter->second._state)
+    {
+        return std::nullopt;
+    }
+
+    ++iter->second._pendingEnterCount;
+    return ZoneEnterPermit{ zoneId, iter->second._generation };
+}
+
+void ZoneManager::ReleaseZoneEnter(ZoneEnterPermit const& permit)
+{
+    std::unique_lock lock(_mutex);
+
+    auto iter = _zones.find(permit._zoneId);
+    if (_zones.end() == iter || iter->second._generation != permit._generation)
+    {
+        return;
+    }
+
+    if (0 < iter->second._pendingEnterCount)
+    {
+        --iter->second._pendingEnterCount;
+    }
+}
+
+bool ZoneManager::TryMarkClosingIfDestroyable(InstanceId const instanceId, ZoneId const zoneId)
+{
+    std::unique_lock lock(_mutex);
+
+    auto const instanceIter = _instances.find(instanceId);
+    if (_instances.end() == instanceIter || instanceIter->second->GetZoneId() != zoneId)
     {
         return false;
     }
 
-    auto const fromZoneId = player->GetCurrentZoneId();
-    if (INVALID_ZONE_ID != fromZoneId)
+    auto zoneIter = _zones.find(zoneId);
+    if (_zones.end() == zoneIter || 0 != zoneIter->second._pendingEnterCount)
     {
-        SendToZone(fromZoneId, ZoneMsg::PlayerLeft{ player->GetActorId() });
+        return false;
     }
 
-    player->SetCurrentZoneId(toZoneId);
-    SendToZone(toZoneId, ZoneMsg::PlayerEntered{
-        player->GetActorId(),
-        player->GetSession(),
-        player->GetPosition(),
-        player->GetHp()
-    });
+    zoneIter->second._state = EZoneLifecycleState::Closing;
     return true;
 }
 
-bool ZoneManager::EnterInstanceDungeon(std::shared_ptr<Player> const& player, InstanceId const instanceId)
+void ZoneManager::RequestMovePlayer(ActorId const actorId, ZoneId const toZoneId)
 {
-    auto const instance = FindInstanceDungeon(instanceId);
+    PlayerTaskRunner::PostMoveToZone(actorId, toZoneId);
+}
+
+bool ZoneManager::RequestEnterInstanceDungeon(ActorId const actorId, InstanceId const instanceId)
+{
+    auto const instance = FindInstanceDungeonInternal(instanceId);
     if (not instance)
     {
         return false;
     }
 
-    return MovePlayer(player, instance->GetZoneId());
+    RequestMovePlayer(actorId, instance->GetZoneId());
+    return true;
 }
 
 void ZoneManager::CollectAllSnapshots(std::vector<ActorSnapshot>& outSnapshots) const
 {
-    for (auto const& [id, zone] : _zones)
+    std::vector<std::shared_ptr<IZone>> zones;
+
+    {
+        std::shared_lock lock(_mutex);
+        zones.reserve(_zones.size());
+
+        for (auto const& [id, zone] : _zones)
+        {
+            zones.emplace_back(zone._zone);
+        }
+    }
+
+    for (auto const& zone : zones)
     {
         if (auto const cached = zone->GetCachedSnapshot())
         {
@@ -128,19 +224,21 @@ void ZoneManager::CollectAllSnapshots(std::vector<ActorSnapshot>& outSnapshots) 
 
 void ZoneManager::CleanupEmptyInstances()
 {
-    std::vector<InstanceId> toRemove;
+    std::vector<std::pair<InstanceId, ZoneId>> candidates;
 
-    for (auto const& [id, instance] : _instances)
     {
-        if (instance->IsEmpty())
+        std::shared_lock lock(_mutex);
+        candidates.reserve(_instances.size());
+
+        for (auto const& [instanceId, instance] : _instances)
         {
-            toRemove.emplace_back(id);
+            candidates.emplace_back(instanceId, instance->GetZoneId());
         }
     }
 
-    for (auto const instanceId : toRemove)
+    for (auto const [instanceId, zoneId] : candidates)
     {
-        DestroyInstanceDungeon(instanceId);
+        ZoneTaskRunner::PostDestroyIfEmpty(instanceId, zoneId);
     }
 }
 
@@ -159,21 +257,35 @@ void ZoneManager::StartZoneTick(std::shared_ptr<IZone> const& zone)
                 return;
             }
 
-            PostToZone(zoneId,
-                [zoneId]()
-                {
-                    if (auto const zone = ZoneManager::Singleton::GetInstance().FindZone(zoneId))
-                    {
-                        zone->Update();
-                    }
-                });
+            ZoneTaskRunner::PostUpdate(zoneId);
         }
     );
 
-    _zoneTimers.emplace(zoneId, timerId);
+    bool registered{ false };
+
+    {
+        std::unique_lock lock(_mutex);
+        auto const iter = _zones.find(zoneId);
+        if (_zones.end() != iter && iter->second._zone == zone)
+        {
+            auto const [timerIter, inserted] = _zoneTimers.emplace(zoneId, timerId);
+            (void)timerIter;
+            registered = inserted;
+        }
+    }
+
+    if (not registered)
+    {
+        TimerManager::Singleton::GetInstance().CancelTimer(timerId);
+    }
 }
 
 ZoneId ZoneManager::AllocateZoneId()
 {
     return _nextZoneId++;
+}
+
+uint64_t ZoneManager::AllocateZoneGeneration()
+{
+    return _nextZoneGeneration++;
 }

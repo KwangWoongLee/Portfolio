@@ -33,6 +33,7 @@ bool IZone::Enter(ZoneMsg::PlayerEntered const& msg)
 
     _actors.emplace(actorId, std::move(state));
     _grid.Add(actorId, msg._position);
+    _cachedActorCount.store(_actors.size(), std::memory_order_relaxed);
 
     auto const selfPkt = MakeEnterPacket(actorId, msg._position, msg._hp);
     BroadcastInSight(msg._position, selfPkt, actorId);
@@ -127,6 +128,7 @@ void IZone::Leave(ActorId const actorId)
 
     _grid.Remove(actorId, pos);
     _actors.erase(iter);
+    _cachedActorCount.store(_actors.size(), std::memory_order_relaxed);
 
     std::cout << "[Zone:" << _zoneId << "] Actor=" << actorId
         << " left (count=" << _actors.size() << ")" << std::endl;
@@ -143,11 +145,11 @@ void IZone::OnMessage(ZoneMsg::ActorMoved const& msg)
     BroadcastInSight(msg._newPosition, packet, msg._actorId);
 }
 
-void IZone::OnMessage(ZoneMsg::PlayerEntered const& msg)
+bool IZone::OnMessage(ZoneMsg::PlayerEntered const& msg)
 {
     if (not Enter(msg))
     {
-        return;
+        return false;
     }
 
     W2CWelcome welcomePacket;
@@ -162,6 +164,8 @@ void IZone::OnMessage(ZoneMsg::PlayerEntered const& msg)
         session->SendPacket(welcomePacket);
         session->FlushPacketStream();
     }
+
+    return true;
 }
 
 void IZone::OnMessage(ZoneMsg::PlayerLeft const& msg)

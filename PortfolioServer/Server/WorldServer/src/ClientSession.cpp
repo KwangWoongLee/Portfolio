@@ -44,13 +44,12 @@ void ClientSession::HandlePacket(uint16_t const packetId, void const* const payl
 void ClientSession::OnConnected()
 {
     auto const session = std::static_pointer_cast<IOCPSession>(shared_from_this());
-    auto const player = PlayerManager::Singleton::GetInstance().Create(session);
-    _actorId = player->GetActorId();
+    _actorId = PlayerManager::Singleton::GetInstance().Create(session);
 
     std::cout << "[ClientSession:" << GetSessionId() << "] Connected (actor=" << _actorId << ")" << std::endl;
 
-    // MovePlayer가 SendToZone(PlayerEntered)로 위임. Zone worker가 actor state 등록 + W2CWelcome 송신.
-    ZoneManager::Singleton::GetInstance().MovePlayer(player, 1);
+    // RequestMovePlayer가 enter permit을 예약하고, Zone enter 성공 후 Player current zone을 확정.
+    ZoneManager::Singleton::GetInstance().RequestMovePlayer(_actorId, 1);
 }
 
 void ClientSession::OnDisconnected()
@@ -60,17 +59,7 @@ void ClientSession::OnDisconnected()
         return;
     }
 
-    auto const player = PlayerManager::Singleton::GetInstance().Find(_actorId);
-    if (player)
-    {
-        auto const zoneId = player->GetCurrentZoneId();
-        if (INVALID_ZONE_ID != zoneId)
-        {
-            SendToZone(zoneId, ZoneMsg::PlayerLeft{ _actorId });
-        }
-    }
-
-    PlayerManager::Singleton::GetInstance().Remove(_actorId);
+    PlayerTaskRunner::PostDisconnect(_actorId);
 
     std::cout << "[ClientSession:" << GetSessionId() << " actor:" << _actorId << "] Disconnected" << std::endl;
 

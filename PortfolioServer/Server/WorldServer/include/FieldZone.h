@@ -10,5 +10,6 @@ public:
     {
     }
 
+private:
     void Update() override;
 };

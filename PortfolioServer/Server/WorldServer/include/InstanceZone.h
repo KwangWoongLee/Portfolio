@@ -14,6 +14,11 @@ public:
 
     InstanceId GetInstanceId() const { return _instanceId; }
     uint32_t GetDungeonId() const { return _dungeonId; }
+
+private:
+    friend class ZoneTaskRunner;
+
+    // Owning zone worker only. Lifecycle decisions must not use cached counts.
     bool IsEmpty() const { return _actors.empty(); }
 
     void Update() override;
