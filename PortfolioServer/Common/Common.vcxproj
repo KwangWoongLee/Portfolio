@@ -80,6 +80,8 @@
     <ClInclude Include="include\PacketId.h" />
     <ClInclude Include="include\SiegeWarData.h" />
     <ClInclude Include="include\SiegeScheduleData.h" />
+    <ClInclude Include="include\StateMachine.h" />
+    <ClInclude Include="include\StateMachine.inl" />
     <ClInclude Include="include\WorldPackets.h" />
   </ItemGroup>
   <ItemGroup>
@@ -88,6 +90,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\CmsManager.cpp" />
+    <ClCompile Include="src\StateMachine.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

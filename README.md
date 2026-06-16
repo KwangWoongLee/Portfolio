@@ -4,7 +4,7 @@
 
 핵심 목표는 단순 샘플 서버가 아니라, **라이브 MMORPG 서버에서 자주 마주치는 네트워크, 비동기 처리, 월드/존 동시성, 콘텐츠 상태 관리, 운영 지표 분석**을 코드와 문서로 설명할 수 있게 만드는 것입니다.
 
-현재 구현은 IOCP 기반 네트워크 코어와 Actor/Zone 실행 모델, 부하 테스트 및 메트릭 분석에 집중되어 있습니다. 1개월 완성 목표로 공성전 상태 머신, 보상/상품 흐름, MySQL 스키마와 라이브 이슈 대응 문서를 추가할 예정입니다.
+현재 구현은 IOCP 기반 네트워크 코어와 Actor/Zone 실행 모델, 공통 상태 머신 유틸, 부하 테스트 및 메트릭 분석에 집중되어 있습니다. 1개월 완성 목표로 공성전 상태 머신 적용, 보상/상품 흐름, MySQL 스키마와 라이브 이슈 대응 문서를 추가할 예정입니다.
 
 ---
 
@@ -97,7 +97,19 @@
 - `PortfolioServer/Common/data/SiegeWar.csv`
 - `PortfolioServer/Common/data/SiegeSchedule.csv`
 
-### 5. 부하 테스트와 관찰성
+### 5. 공통 상태 머신 유틸
+
+- 현재 상태, 허용 전이, guard, `onEnter`/`onTick`/`onExit` 처리
+- 선형 phase 흐름은 `AllowSequentialTransitions`, 예외 전이는 `AllowTransition`으로 정의
+- 자체 thread/lock 없이 actor 또는 콘텐츠 객체가 has-a로 소유
+- Tick에서 상태별 진행 로직과 전환 조건을 처리하고, 전이 결과는 호출자가 후속 처리
+- 공성전, 라이브 이벤트 단계 흐름에 재사용 예정
+
+관련 코드:
+
+- `PortfolioServer/Common/include/StateMachine.h`
+
+### 6. 부하 테스트와 관찰성
 
 - TestClient 부하 봇
 - Observer channel로 actor snapshot과 metrics 전송
@@ -148,7 +160,7 @@
 
 ### 1. 공성전 서버 상태 머신
 
-- Scheduled / Ready / InProgress / Rewarding / Finished / Canceled
+- Scheduled / Prepare / InProgress / Finished / Canceled
 - 스케줄 로딩
 - GM 명령 기반 강제 시작/종료
 - 참여자/진영/길드 등록
