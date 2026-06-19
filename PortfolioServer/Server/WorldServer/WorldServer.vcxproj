@@ -87,6 +87,7 @@
     <ClInclude Include="include\PlayerMessages.h" />
     <ClInclude Include="include\PlayerPost.h" />
     <ClInclude Include="include\PlayerTaskRunner.h" />
+    <ClInclude Include="include\Siege\SiegeWar.h" />
     <ClInclude Include="include\WorldServerApp.h" />
     <ClInclude Include="include\ClientSession.h" />
     <ClInclude Include="include\WorldTypes.h" />
@@ -107,6 +108,7 @@
     <ClCompile Include="src\ObserverSession.cpp" />
     <ClCompile Include="src\Player.cpp" />
     <ClCompile Include="src\PlayerManager.cpp" />
+    <ClCompile Include="src\Siege\SiegeWar.cpp" />
     <ClCompile Include="src\WorldServerApp.cpp" />
     <ClCompile Include="src\ClientSession.cpp" />
     <ClCompile Include="src\ZoneManager.cpp" />
