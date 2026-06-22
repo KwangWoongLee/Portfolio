@@ -4,7 +4,7 @@
 
 핵심 목표는 단순 샘플 서버가 아니라, **라이브 MMORPG 서버에서 자주 마주치는 네트워크, 비동기 처리, 월드/존 동시성, 콘텐츠 상태 관리, 운영 지표 분석**을 코드와 문서로 설명할 수 있게 만드는 것입니다.
 
-현재 구현은 IOCP 기반 네트워크 코어와 Actor/Zone 실행 모델, 공통 상태 머신 유틸, 부하 테스트 및 메트릭 분석에 집중되어 있습니다. 1개월 완성 목표로 공성전 상태 머신 적용, 보상/상품 흐름, MySQL 스키마와 라이브 이슈 대응 문서를 추가할 예정입니다.
+현재 구현은 IOCP 기반 네트워크 코어, Player/Zone/World actor 실행 모델, 길드와 공성전 lifecycle, 공통 상태 머신 유틸, 부하 테스트 및 메트릭 분석에 집중되어 있습니다. 이후 보상/상품 흐름, MySQL 스키마와 라이브 이슈 대응 문서를 확장할 예정입니다.
 
 ---
 
@@ -16,7 +16,7 @@
 |---|---|
 | C/C++, 자료구조, 알고리즘 | IOCP 서버 코어, LinearBuffer, Stream, ObjectPool, Grid 기반 시야 처리 |
 | 비동기/네트워크/소켓 프로그래밍 | IOCP, AcceptEx/WSARecv/WSASend, completion worker pool, session lifecycle |
-| 라이브 서비스 콘텐츠 개발 | World/Zone, Player, 이동/공격/HP/사망, 공성전 시스템 추가 예정 |
+| 라이브 서비스 콘텐츠 개발 | World/Zone, Player, 길드 가입·탈퇴·위임, 공성전 선포와 진행 상태 머신 |
 | MySQL/SQL 이해 | 2~3주차에 MySQL schema와 보상/공성전 저장 흐름 추가 예정 |
 | 디버깅과 이슈 추적 | race condition, SendOverflow, backpressure 측정 narrative 문서화 |
 | 최적화/리팩토링 | Zone actor화, single zone bottleneck 분석, tick batching 설계 |
@@ -48,7 +48,7 @@
 
 - 작업 성격별 executor 구성: `GameLogic`, `NetworkIO`, `DB`, `Timer`
 - `KeySerialTaskExecutor`로 같은 key의 작업을 같은 worker에서 직렬 처리
-- Player와 Zone을 actor-like 메시지 처리 흐름으로 분리
+- Player, Zone, World와 진행 중인 SiegeWar를 key 기반 메시지 처리 흐름으로 분리
 - Manager는 registry/lifecycle을 lock으로 관리하고, 내부 객체 변경은 `ManagedActorTaskAccess` 기반 Runner로만 실행
 - 공유 상태 접근을 특정 worker로 모아 race condition을 줄이는 구조
 
@@ -60,6 +60,8 @@
 - `PortfolioServer/Common/include/ManagedActorTaskAccess.h`
 - `PortfolioServer/Common/include/ActorTask.h`
 - `PortfolioServer/Server/WorldServer/include/ZoneTask.h`
+- `PortfolioServer/Server/WorldServer/include/WorldTask.h`
+- `PortfolioServer/Server/WorldServer/include/WorldActorRegistry.h`
 
 ### 3. World / Zone 서버 구조
 
@@ -73,6 +75,9 @@
 - 인스턴스 제거는 manager lock 밖에서 후보를 모은 뒤 zone worker에서 empty 여부를 재확인
 - 외부에는 raw zone lookup을 공개하지 않고 `PostToZone`/`SendToZone`/snapshot API만 사용
 - zone 입장은 `Open` 상태에서 발급한 enter permit이 있을 때만 진행하고, 실제 enter 성공 후 player current zone을 확정
+- WorldActor는 WorldId key로 실행되며 GuildManager를 멤버로 소유
+- GuildManager는 길드 registry/index와 내부 SiegeManager를 함께 조정하고 snapshot 복사 조회만 제공
+- Guild는 자체 lock으로 길드장·길드원 상태를 보호하고, 진행 중인 SiegeWar는 별도 actor task에서 상태를 변경
 
 관련 코드:
 
@@ -97,7 +102,22 @@
 - `PortfolioServer/Common/data/SiegeWar.csv`
 - `PortfolioServer/Common/data/SiegeSchedule.csv`
 
-### 5. 공통 상태 머신 유틸
+### 5. 길드와 공성전 lifecycle
+
+- 길드 생성 시 생성자를 길드장으로 등록하고 가입·탈퇴·길드장 위임을 지원
+- 공성전 참여 길드는 `InProgress` 동안 신규 가입과 해산을 제한
+- 길드장 개인 골드는 Player actor에서 `MemoryTransaction`으로 차감
+- 선포는 WorldActor의 예약, Player actor의 결제, WorldActor의 확정 순서로 처리
+- SiegeWar actor는 의미 있는 상태 변경 시 revision snapshot을 WorldActor로 전달
+- 종료 snapshot 반영 후 참가 제한을 해제하고 DB·보상 작업 생성을 위한 TODO 지점을 유지
+
+관련 코드:
+
+- `PortfolioServer/Server/WorldServer/include/Guild/GuildManager.h`
+- `PortfolioServer/Server/WorldServer/include/Siege/SiegeManager.h`
+- `PortfolioServer/Server/WorldServer/include/Siege/SiegeWarTaskRunner.h`
+
+### 6. 공통 상태 머신 유틸
 
 - 현재 상태, 허용 전이, guard, `onEnter`/`onTick`/`onExit` 처리
 - 선형 phase 흐름은 `AllowSequentialTransitions`, 예외 전이는 `AllowTransition`으로 정의
@@ -109,7 +129,7 @@
 
 - `PortfolioServer/Common/include/StateMachine.h`
 
-### 6. 부하 테스트와 관찰성
+### 7. 부하 테스트와 관찰성
 
 - TestClient 부하 봇
 - Observer channel로 actor snapshot과 metrics 전송

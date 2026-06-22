@@ -1,5 +1,6 @@
 #include "CorePch.h"
 #include "WorldServerApp.h"
+#include "WorldActorRegistry.h"
 #include "ClientSession.h"
 #include "ObserverSession.h"
 #include "ObserverManager.h"
@@ -74,6 +75,12 @@ bool WorldServerApp::Init()
         return false;
     }
 
+    if (not WorldActorRegistry::Singleton::GetInstance().Create(DEFAULT_WORLD_ID))
+    {
+        std::cout << "[WorldServer] Failed to create default WorldActor" << std::endl;
+        return false;
+    }
+
     InitZones();
 
     TimerManager::Singleton::GetInstance().AddRepeatTimer(
@@ -96,6 +103,7 @@ void WorldServerApp::Stop()
 {
     DisconnectLogger::Singleton::GetInstance().Stop();
     MetricsLogger::Singleton::GetInstance().Stop();
+    WorldActorRegistry::Singleton::GetInstance().Remove(DEFAULT_WORLD_ID);
     _engine->Stop();
 }
 

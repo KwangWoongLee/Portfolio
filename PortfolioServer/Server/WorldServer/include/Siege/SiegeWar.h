@@ -1,34 +1,8 @@
 #pragma once
 #include "CorePch.h"
 #include "SiegeWarData.h"
+#include "Siege/SiegeTypes.h"
 #include "StateMachine.h"
-
-using GuildId = int64_t;
-inline GuildId constexpr INVALID_GUILD_ID = 0;
-
-enum class ESiegeWarState : uint8_t
-{
-    Scheduled,
-    Prepare,
-    InProgress,
-    Finished,
-    Canceled,
-};
-
-enum class ESiegeWarProgressStep : uint8_t
-{
-    None,
-    AttackWindow,
-    OccupationGrace,
-};
-
-enum class ESiegeWarEndReason : uint8_t
-{
-    None,
-    DefenderVictory,
-    DrawNoOwner,
-    Canceled,
-};
 
 char const* ToString(ESiegeWarState const state);
 char const* ToString(ESiegeWarProgressStep const step);
@@ -40,6 +14,8 @@ public:
     using Clock = std::chrono::steady_clock;
 
     SiegeWar(
+        WorldId worldId,
+        SiegeWarId siegeWarId,
         SiegeWarData data,
         Clock::time_point scheduledAt,
         GuildId initialDefenderGuildId = INVALID_GUILD_ID);
@@ -54,6 +30,7 @@ public:
     ESiegeWarEndReason GetEndReason() const;
     GuildId GetDefenderGuildId() const;
     GuildId GetWinnerGuildId() const;
+    SiegeWarSnapshot CreateSnapshot() const;
 
     StateTransitionResult<ESiegeWarState> Tick(Clock::time_point now);
     StateTransitionResult<ESiegeWarState> Cancel(std::string reason, Clock::time_point now);
@@ -86,7 +63,9 @@ private:
     void ResolveByCurrentDefender();
     void ResolveAsDraw();
 
-    SiegeWarData _data;
+    WorldId const _worldId;
+    SiegeWarId const _siegeWarId;
+    SiegeWarData const _data;
     Clock::time_point _scheduledAt;
     Clock::time_point _phaseStartedAt;
     Clock::time_point _stepStartedAt;
@@ -94,6 +73,7 @@ private:
 
     GuildId _defenderGuildId{ INVALID_GUILD_ID };
     GuildId _winnerGuildId{ INVALID_GUILD_ID };
+    uint64_t _revision{ 1 };
     ESiegeWarProgressStep _progressStep{ ESiegeWarProgressStep::None };
     ESiegeWarEndReason _endReason{ ESiegeWarEndReason::None };
 

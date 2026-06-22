@@ -1,2 +1,2 @@
-Id,Name,PrepDurationSec,AttackDurationSec,SwapSideDurationSec
-1,아크로폴리스,300,600,30
+Id,Name,PrepDurationSec,AttackDurationSec,SwapSideDurationSec,DeclarationCostGold
+1,아크로폴리스,300,600,30,100000

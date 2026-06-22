@@ -61,10 +61,14 @@ char const* ToString(ESiegeWarEndReason const reason)
 }
 
 SiegeWar::SiegeWar(
+    WorldId const worldId,
+    SiegeWarId const siegeWarId,
     SiegeWarData data,
     Clock::time_point const scheduledAt,
     GuildId const initialDefenderGuildId)
-    : _data(std::move(data))
+    : _worldId(worldId)
+    , _siegeWarId(siegeWarId)
+    , _data(std::move(data))
     , _scheduledAt(scheduledAt)
     , _phaseStartedAt(scheduledAt)
     , _stepStartedAt(scheduledAt)
@@ -99,16 +103,41 @@ GuildId SiegeWar::GetWinnerGuildId() const
     return _winnerGuildId;
 }
 
+SiegeWarSnapshot SiegeWar::CreateSnapshot() const
+{
+    return SiegeWarSnapshot{
+        _worldId,
+        _siegeWarId,
+        _data._type,
+        _revision,
+        _stateMachine.GetState(),
+        _progressStep,
+        _endReason,
+        _defenderGuildId,
+        _winnerGuildId,
+    };
+}
+
 StateTransitionResult<ESiegeWarState> SiegeWar::Tick(Clock::time_point const now)
 {
     TickContext context{ *this, now };
-    return _stateMachine.Tick(context);
+    auto result = _stateMachine.Tick(context);
+    if (result.Succeeded())
+    {
+        ++_revision;
+    }
+    return result;
 }
 
 StateTransitionResult<ESiegeWarState> SiegeWar::Cancel(std::string reason, Clock::time_point const now)
 {
     TickContext context{ *this, now };
-    return _stateMachine.TryTransition(ESiegeWarState::Canceled, std::move(reason), context);
+    auto result = _stateMachine.TryTransition(ESiegeWarState::Canceled, std::move(reason), context);
+    if (result.Succeeded())
+    {
+        ++_revision;
+    }
+    return result;
 }
 
 bool SiegeWar::OnOccupied(GuildId const guildId, Clock::time_point const now)
@@ -122,11 +151,13 @@ bool SiegeWar::OnOccupied(GuildId const guildId, Clock::time_point const now)
     {
         _defenderGuildId = guildId;
         BeginAttackWindow(now);
+        ++_revision;
         return true;
     }
 
     _defenderGuildId = guildId;
     BeginOccupationGrace(now);
+    ++_revision;
     return true;
 }
 

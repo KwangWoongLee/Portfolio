@@ -67,6 +67,7 @@ bool CmsManager::LoadSiegeWar(std::string const& dataPath)
         data._prepDurationSec = row.GetInt32(2);
         data._attackDurationSec = row.GetInt32(3);
         data._swapSideDurationSec = row.GetInt32(4);
+        data._declarationCostGold = row.GetInt64(5);
 
         auto const type = data._type;
         _siegeWars.emplace(type, std::move(data));

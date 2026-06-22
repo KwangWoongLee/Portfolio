@@ -9,4 +9,5 @@ struct SiegeWarData final
     int32_t _prepDurationSec{};
     int32_t _attackDurationSec{};
     int32_t _swapSideDurationSec{};
+    int64_t _declarationCostGold{};
 };

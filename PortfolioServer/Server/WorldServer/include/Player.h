@@ -37,12 +37,19 @@ private:
     void OnMessage(PlayerMsg::Attacked const& msg);
     void OnMessage(PlayerMsg::Healed const& msg);
     void OnMessage(PlayerMsg::Respawn const& msg);
+    void OnMessage(PlayerMsg::SiegeDeclarationPaymentRequested const& msg);
+    void OnMessage(PlayerMsg::SiegeDeclarationRefundRequested const& msg);
 
     static int32_t constexpr MAX_HP = 5000;
+    static int64_t constexpr DEFAULT_GOLD = 1'000'000;
+
+    class GoldUndoLog;
 
     std::weak_ptr<IOCPSession> const _session;
     SessionId const _sessionId;
     ZoneId _currentZoneId{ INVALID_ZONE_ID };
     ZoneId _pendingZoneId{ INVALID_ZONE_ID };
     int32_t _hp{};
+    int64_t _gold{ DEFAULT_GOLD };
+    std::unordered_set<SiegeDeclarationId> _paidSiegeDeclarationIds;
 };

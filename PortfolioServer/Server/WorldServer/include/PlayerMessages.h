@@ -1,5 +1,6 @@
 #pragma once
 #include "Actor.h"
+#include "Siege/SiegeTypes.h"
 
 // Player가 처리하는 메시지 타입 모음.
 // 액터 간 통신이나 패킷 → 액터 디스패치 시 이 타입들을 사용한다.
@@ -31,5 +32,18 @@ namespace PlayerMsg
 
     struct Respawn
     {
+    };
+
+    struct SiegeDeclarationPaymentRequested final
+    {
+        WorldId _worldId{ INVALID_WORLD_ID };
+        SiegeDeclarationId _declarationId{ INVALID_SIEGE_DECLARATION_ID };
+        int64_t _costGold{};
+    };
+
+    struct SiegeDeclarationRefundRequested final
+    {
+        SiegeDeclarationId _declarationId{ INVALID_SIEGE_DECLARATION_ID };
+        int64_t _costGold{};
     };
 }
