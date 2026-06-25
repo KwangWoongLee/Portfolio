@@ -47,6 +47,9 @@
     <ClInclude Include="include\TaskDispatcher.h">
       <Filter>Infra</Filter>
     </ClInclude>
+    <ClInclude Include="include\DbDispatcher.h">
+      <Filter>Infra</Filter>
+    </ClInclude>
     <ClInclude Include="include\Listener.h">
       <Filter>Network</Filter>
     </ClInclude>
@@ -134,6 +137,9 @@
       <Filter>Infra</Filter>
     </ClCompile>
     <ClCompile Include="src\TaskDispatcher.cpp">
+      <Filter>Infra</Filter>
+    </ClCompile>
+    <ClCompile Include="src\DbDispatcher.cpp">
       <Filter>Infra</Filter>
     </ClCompile>
     <ClCompile Include="src\TimerManager.cpp">

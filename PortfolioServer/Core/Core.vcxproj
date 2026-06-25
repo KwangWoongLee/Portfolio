@@ -23,6 +23,7 @@
     <ClInclude Include="include\Connector.h" />
     <ClInclude Include="include\CsvParser.h" />
     <ClInclude Include="include\CorePch.h" />
+    <ClInclude Include="include\DbDispatcher.h" />
     <ClInclude Include="include\DisconnectLogger.h" />
     <ClInclude Include="include\Logger.h" />
     <ClInclude Include="include\ProcessInfo.h" />
@@ -70,6 +71,7 @@
     </ClCompile>
     <ClCompile Include="src\CsvParser.cpp" />
     <ClCompile Include="src\Connector.cpp" />
+    <ClCompile Include="src\DbDispatcher.cpp" />
     <ClCompile Include="src\DisconnectLogger.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Logger.cpp" />

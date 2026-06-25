@@ -3,21 +3,24 @@
 
 MemoryTransaction::~MemoryTransaction()
 {
-    if (_failed)
+    if (_completed)
     {
-        Rollback();
         return;
     }
 
-    for (auto const& log : _undoLogs)
+    if (_failed)
     {
-        log->Persist();
+        Rollback();
+        _completed = true;
+        return;
     }
+
+    (void)Commit();
 }
 
 void MemoryTransaction::AddUndoLog(std::unique_ptr<IUndoLog> log)
 {
-    if (_failed)
+    if (_failed || _completed)
     {
         return;
     }
@@ -29,7 +32,41 @@ void MemoryTransaction::AddUndoLog(std::unique_ptr<IUndoLog> log)
 
 void MemoryTransaction::MarkFailed()
 {
+    if (_completed)
+    {
+        return;
+    }
+
     _failed = true;
+}
+
+bool MemoryTransaction::Commit()
+{
+    if (_completed)
+    {
+        return not _failed;
+    }
+
+    if (_failed)
+    {
+        Rollback();
+        _completed = true;
+        return false;
+    }
+
+    for (auto const& log : _undoLogs)
+    {
+        if (not log->Persist())
+        {
+            _failed = true;
+            Rollback();
+            _completed = true;
+            return false;
+        }
+    }
+
+    _completed = true;
+    return true;
 }
 
 void MemoryTransaction::Rollback()

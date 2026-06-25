@@ -2,6 +2,7 @@
 #include "Player.h"
 #include "PlayerPost.h"
 #include "MemoryTransaction.h"
+#include "DbDispatcher.h"
 #include "TimerManager.h"
 #include "WorldMessages.h"
 #include "WorldPost.h"
@@ -35,9 +36,29 @@ public:
         _player._gold = _previousGold;
     }
 
-    void Persist() override
+    bool Persist() override
     {
-        // TODO: persist character gold with an idempotent DB command.
+        auto const ownerId = GetOwnerId();
+        auto const gold = _player._gold;
+        return DbDispatcher::Singleton::GetInstance().Enqueue(ownerId,
+            std::make_unique<LambdaDbCommand>(
+                [ownerId, gold]()
+                {
+                    (void)ownerId;
+                    (void)gold;
+                    // TODO: call stored procedure: character gold update(ownerId, gold).
+                    return EDbCommandResult::Succeeded;
+                },
+                [ownerId](EDbCommandResult const result)
+                {
+                    if (result == EDbCommandResult::Succeeded)
+                    {
+                        return;
+                    }
+
+                    (void)ownerId;
+                    // TODO: record DB error tracking and disconnect/reload the owner session.
+                }));
     }
 
 private:
@@ -169,6 +190,17 @@ void Player::OnMessage(PlayerMsg::SiegeDeclarationPaymentRequested const& msg)
 
     MemoryTransaction transaction(static_cast<int64_t>(GetActorId()));
     transaction.Add<GoldUndoLog>(*this, -msg._costGold);
+    if (not transaction.Commit())
+    {
+        SendToWorld(msg._worldId, WorldMsg::SiegeDeclarationPaymentCompleted{
+            GetActorId(),
+            msg._declarationId,
+            msg._costGold,
+            false,
+        });
+        return;
+    }
+
     _paidSiegeDeclarationIds.insert(msg._declarationId);
 
     SendToWorld(msg._worldId, WorldMsg::SiegeDeclarationPaymentCompleted{
@@ -181,11 +213,17 @@ void Player::OnMessage(PlayerMsg::SiegeDeclarationPaymentRequested const& msg)
 
 void Player::OnMessage(PlayerMsg::SiegeDeclarationRefundRequested const& msg)
 {
-    if (not _paidSiegeDeclarationIds.erase(msg._declarationId))
+    if (not _paidSiegeDeclarationIds.contains(msg._declarationId))
     {
         return;
     }
 
     MemoryTransaction transaction(static_cast<int64_t>(GetActorId()));
     transaction.Add<GoldUndoLog>(*this, msg._costGold);
+    if (not transaction.Commit())
+    {
+        return;
+    }
+
+    _paidSiegeDeclarationIds.erase(msg._declarationId);
 }

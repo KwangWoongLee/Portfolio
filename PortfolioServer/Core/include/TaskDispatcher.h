@@ -9,7 +9,7 @@ public:
     using Singleton = Singleton<TaskDispatcher>;
 
     bool AddExecutor(ETaskType const taskType, uint8_t const threadCount);
-    void Dispatch(std::shared_ptr<ITask> const& task) const;
+    bool Dispatch(std::shared_ptr<ITask> const& task) const;
 
     size_t GetTotalQueueSize() const;
 

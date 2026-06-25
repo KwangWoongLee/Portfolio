@@ -26,7 +26,7 @@ namespace
             _player._gold = _prev;
             std::cout << "  [Gold] Rollback -> " << _player._gold << std::endl;
         }
-        void Persist() override
+        bool Persist() override
         {
             // FireAndForget: ownerId를 value 캡처, 실패 콜백에서 세션 lookup 후 disconnect
             auto const ownerId = GetOwnerId();
@@ -40,6 +40,7 @@ namespace
             //               if (auto s = SessionMgr::Find(ownerId)) s->Disconnect();
             //           }
             //       });
+            return true;
         }
 
     private:
@@ -64,11 +65,12 @@ namespace
             _player._potion = _prev;
             std::cout << "  [Potion] Rollback -> " << _player._potion << std::endl;
         }
-        void Persist() override
+        bool Persist() override
         {
             auto const ownerId = GetOwnerId();
             auto const potion = _player._potion;
             std::cout << "  [Potion] Persist(DB) owner=" << ownerId << " potion=" << potion << std::endl;
+            return true;
         }
 
     private:
@@ -99,7 +101,7 @@ namespace
         }
         tx.Add<PotionUndoLog>(player, amount);
 
-        return true;
+        return tx.Commit();
     }
 
     void RunMemoryTransactionDemo()

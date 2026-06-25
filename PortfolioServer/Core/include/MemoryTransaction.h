@@ -9,7 +9,8 @@ public:
     virtual ~IUndoLog() = default;
     virtual void Apply() = 0;
     virtual void Rollback() = 0;
-    virtual void Persist() {}
+    // Return false only when persistence cannot be queued locally. Async DB failures are handled outside this transaction.
+    virtual bool Persist() { return true; }
 
     int64_t GetOwnerId() const { return _ownerId; }
 
@@ -39,6 +40,7 @@ public:
     }
 
     void MarkFailed();
+    bool Commit();
 
     bool IsFailed() const { return _failed; }
     int64_t GetOwnerId() const { return _ownerId; }
@@ -49,4 +51,5 @@ private:
     int64_t const _ownerId;
     std::vector<std::unique_ptr<IUndoLog>> _undoLogs;
     bool _failed{ false };
+    bool _completed{ false };
 };

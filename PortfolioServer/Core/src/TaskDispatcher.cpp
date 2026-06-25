@@ -23,17 +23,23 @@ bool TaskDispatcher::AddExecutor(ETaskType const taskType, uint8_t const threadC
     return true;
 }
 
-void TaskDispatcher::Dispatch(std::shared_ptr<ITask> const& task) const
+bool TaskDispatcher::Dispatch(std::shared_ptr<ITask> const& task) const
 {
+    if (not task)
+    {
+        return false;
+    }
+
     auto const taskTypeIndex = static_cast<uint8_t>(task->GetTaskType());
 
     if (not _executors.at(taskTypeIndex))
     {
         //TODO: log
-        assert(false);
+        return false;
     }
 
     _executors.at(taskTypeIndex)->Reserve(task);
+    return true;
 }
 
 size_t TaskDispatcher::GetTotalQueueSize() const

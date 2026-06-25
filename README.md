@@ -47,6 +47,7 @@
 ### 2. TaskDispatcher와 Actor 실행 모델
 
 - 작업 성격별 executor 구성: `GameLogic`, `NetworkIO`, `DB`, `Timer`
+- `DbDispatcher`가 DB command를 DB executor로 넘기고, 완료 콜백은 actor post 또는 error tracking만 수행
 - `KeySerialTaskExecutor`로 같은 key의 작업을 같은 worker에서 직렬 처리
 - Player, Zone, World와 진행 중인 SiegeWar를 key 기반 메시지 처리 흐름으로 분리
 - Manager는 registry/lifecycle을 lock으로 관리하고, 내부 객체 변경은 `ManagedActorTaskAccess` 기반 Runner로만 실행
@@ -106,7 +107,7 @@
 
 - 길드 생성 시 생성자를 길드장으로 등록하고 가입·탈퇴·길드장 위임을 지원
 - 공성전 참여 길드는 `InProgress` 동안 신규 가입과 해산을 제한
-- 길드장 개인 골드는 Player actor에서 `MemoryTransaction`으로 차감
+- 길드장 개인 골드는 Player actor에서 `MemoryTransaction`으로 차감하고, DB command dispatch 이후의 SP 실패는 별도 error tracking으로 분리
 - 선포는 WorldActor의 예약, Player actor의 결제, WorldActor의 확정 순서로 처리
 - SiegeWar actor는 의미 있는 상태 변경 시 revision snapshot을 WorldActor로 전달
 - 종료 snapshot 반영 후 참가 제한을 해제하고 DB·보상 작업 생성을 위한 TODO 지점을 유지
