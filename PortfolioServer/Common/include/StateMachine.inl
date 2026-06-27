@@ -48,10 +48,10 @@ void StateMachine<T_STATE, T_CONTEXT, T_STATE_HASH>::AllowTransition(
     EnsureState(from);
     EnsureState(to);
 
-    auto rule = FindTransitionRule(from, to);
-    if (rule)
+    auto existingRule = FindTransitionRule(from, to);
+    if (existingRule)
     {
-        rule->get()._guard = std::move(guard);
+        existingRule->get()._guard = std::move(guard);
         return;
     }
 

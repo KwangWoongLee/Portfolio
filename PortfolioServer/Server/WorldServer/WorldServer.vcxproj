@@ -50,12 +50,19 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Core\include;$(SolutionDir)Common\include;$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Core\include;$(SolutionDir)Common\include;$(SolutionDir)Database\include;$(ProjectDir)include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>mysqlcppconn.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(MySqlConCppRoot)\lib64\vs14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y &quot;$(MySqlConCppRoot)\lib64\mysqlcppconn-10-vs14.dll&quot; &quot;$(OutDir)&quot;
+copy /Y &quot;$(MySqlConCppRoot)\lib64\libcrypto-3-x64.dll&quot; &quot;$(OutDir)&quot;
+copy /Y &quot;$(MySqlConCppRoot)\lib64\libssl-3-x64.dll&quot; &quot;$(OutDir)&quot;</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -66,12 +73,19 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Core\include;$(SolutionDir)Common\include;$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Core\include;$(SolutionDir)Common\include;$(SolutionDir)Database\include;$(ProjectDir)include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>mysqlcppconn.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(MySqlConCppRoot)\lib64\vs14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y &quot;$(MySqlConCppRoot)\lib64\mysqlcppconn-10-vs14.dll&quot; &quot;$(OutDir)&quot;
+copy /Y &quot;$(MySqlConCppRoot)\lib64\libcrypto-3-x64.dll&quot; &quot;$(OutDir)&quot;
+copy /Y &quot;$(MySqlConCppRoot)\lib64\libssl-3-x64.dll&quot; &quot;$(OutDir)&quot;</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\GameObject.h" />
@@ -137,6 +151,9 @@
     </ProjectReference>
     <ProjectReference Include="..\..\Common\Common.vcxproj">
       <Project>{a1b2c3d4-1234-5678-9abc-def012345678}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Database\Database.vcxproj">
+      <Project>{c569a62a-32aa-49f6-a7f1-8a2c821b88d7}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

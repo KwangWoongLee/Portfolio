@@ -38,25 +38,37 @@ public:
 
     bool Persist() override
     {
-        auto const ownerId = GetOwnerId();
+        auto const characterId = _player._characterId;
+        auto const characterRepository = _player._characterRepository;
         auto const gold = _player._gold;
-        return DbDispatcher::Singleton::GetInstance().Enqueue(ownerId,
+        if (not characterRepository)
+        {
+            return false;
+        }
+
+        return DbDispatcher::Singleton::GetInstance().Enqueue(
+            static_cast<int64_t>(characterId),
             std::make_unique<LambdaDbCommand>(
-                [ownerId, gold]()
+                [characterRepository, characterId, gold]()
                 {
-                    (void)ownerId;
-                    (void)gold;
-                    // TODO: call stored procedure: character gold update(ownerId, gold).
-                    return EDbCommandResult::Succeeded;
+                    auto const result = characterRepository->UpdateGold(characterId, gold);
+                    if (result.Succeeded())
+                    {
+                        return EDbCommandResult::Succeeded;
+                    }
+
+                    std::cerr << "[CharacterRepository] UpdateGold failed (character="
+                        << characterId << "): " << result._message << std::endl;
+                    return EDbCommandResult::Failed;
                 },
-                [ownerId](EDbCommandResult const result)
+                [characterId](EDbCommandResult const result)
                 {
                     if (result == EDbCommandResult::Succeeded)
                     {
                         return;
                     }
 
-                    (void)ownerId;
+                    (void)characterId;
                     // TODO: record DB error tracking and disconnect/reload the owner session.
                 }));
     }
@@ -188,7 +200,7 @@ void Player::OnMessage(PlayerMsg::SiegeDeclarationPaymentRequested const& msg)
         return;
     }
 
-    MemoryTransaction transaction(static_cast<int64_t>(GetActorId()));
+    MemoryTransaction transaction(static_cast<int64_t>(_characterId));
     transaction.Add<GoldUndoLog>(*this, -msg._costGold);
     if (not transaction.Commit())
     {
@@ -218,7 +230,7 @@ void Player::OnMessage(PlayerMsg::SiegeDeclarationRefundRequested const& msg)
         return;
     }
 
-    MemoryTransaction transaction(static_cast<int64_t>(GetActorId()));
+    MemoryTransaction transaction(static_cast<int64_t>(_characterId));
     transaction.Add<GoldUndoLog>(*this, msg._costGold);
     if (not transaction.Commit())
     {

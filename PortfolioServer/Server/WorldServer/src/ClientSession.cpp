@@ -44,7 +44,14 @@ void ClientSession::HandlePacket(uint16_t const packetId, void const* const payl
 void ClientSession::OnConnected()
 {
     auto const session = std::static_pointer_cast<IOCPSession>(shared_from_this());
-    _actorId = PlayerManager::Singleton::GetInstance().Create(session);
+    // TODO: Replace this temporary mapping after authentication and character selection are implemented.
+    auto const characterId = CharacterId{ static_cast<int64_t>(GetSessionId()) };
+    _actorId = PlayerManager::Singleton::GetInstance().Create(session, characterId);
+    if (INVALID_ACTOR_ID == _actorId)
+    {
+        Disconnect(EDisconnectReason::InvalidOperation);
+        return;
+    }
 
     std::cout << "[ClientSession:" << GetSessionId() << "] Connected (actor=" << _actorId << ")" << std::endl;
 

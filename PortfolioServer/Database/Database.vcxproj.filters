@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{bb384dae-bd6d-428c-9562-8be380551f1d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{d43c1d8e-c0eb-40a0-a1d8-642fd36936df}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\CharacterRepository.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="include\DbConfig.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="include\MySqlCharacterRepository.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="include\MySqlConnection.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="include\MySqlConnectionPool.h"><Filter>Header Files</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\DbConfig.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\MySqlCharacterRepository.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\MySqlConnection.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\MySqlConnectionPool.cpp"><Filter>Source Files</Filter></ClCompile>
+  </ItemGroup>
+</Project>

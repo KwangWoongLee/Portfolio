@@ -13,8 +13,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{a1b2c3d4-1234-5678-9abc-def012345678}</ProjectGuid>
-    <RootNamespace>Common</RootNamespace>
+    <ProjectGuid>{c569a62a-32aa-49f6-a7f1-8a2c821b88d7}</ProjectGuid>
+    <RootNamespace>Database</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -32,10 +32,8 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-  </ImportGroup>
-  <ImportGroup Label="Shared">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -50,9 +48,7 @@
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Core\include;$(ProjectDir)include</AdditionalIncludeDirectories>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>CorePch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\Core\include;$(ProjectDir)..\Common\include;$(ProjectDir)include;$(MySqlConCppRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -64,41 +60,38 @@
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Core\include;$(ProjectDir)include</AdditionalIncludeDirectories>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>CorePch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\Core\include;$(ProjectDir)..\Common\include;$(ProjectDir)include;$(MySqlConCppRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="include\Actor.h" />
-    <ClInclude Include="include\CharacterTypes.h" />
-    <ClInclude Include="include\ActorPost.h" />
-    <ClInclude Include="include\ActorTask.h" />
-    <ClInclude Include="include\CmsManager.h" />
-    <ClInclude Include="include\CmsTypes.h" />
-    <ClInclude Include="include\ManagedActorTaskAccess.h" />
-    <ClInclude Include="include\ObserverPackets.h" />
-    <ClInclude Include="include\PacketId.h" />
-    <ClInclude Include="include\SiegeWarData.h" />
-    <ClInclude Include="include\SiegeScheduleData.h" />
-    <ClInclude Include="include\StateMachine.h" />
-    <ClInclude Include="include\StateMachine.inl" />
-    <ClInclude Include="include\WorldPackets.h" />
+    <ClInclude Include="include\CharacterRepository.h" />
+    <ClInclude Include="include\DbConfig.h" />
+    <ClInclude Include="include\MySqlCharacterRepository.h" />
+    <ClInclude Include="include\MySqlConnection.h" />
+    <ClInclude Include="include\MySqlConnectionPool.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\CommonPch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="src\CmsManager.cpp" />
-    <ClCompile Include="src\StateMachine.cpp" />
+    <ClCompile Include="src\DbConfig.cpp" />
+    <ClCompile Include="src\MySqlCharacterRepository.cpp" />
+    <ClCompile Include="src\MySqlConnection.cpp" />
+    <ClCompile Include="src\MySqlConnectionPool.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Common\Common.vcxproj">
+      <Project>{a1b2c3d4-1234-5678-9abc-def012345678}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\Core\Core.vcxproj">
       <Project>{772e46cf-34ed-4fcf-a6ff-a15419fb8eba}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="sql\000_reset_schema.sql" />
+    <None Include="sql\001_schema.sql" />
+    <None Include="sql\002_procedures.sql" />
+  </ItemGroup>
+  <Target Name="ValidateMySqlConCppRoot" BeforeTargets="PrepareForBuild" Condition="'$(MySqlConCppRoot)' == ''">
+    <Error Text="Set MYSQL_CONCPP_ROOT to the installed MySQL Connector/C++ root." />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionTargets" />
 </Project>

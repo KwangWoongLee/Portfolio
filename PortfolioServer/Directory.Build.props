@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <VcpkgEnableManifest>false</VcpkgEnableManifest>
+    <VcpkgManifestRoot>$(MSBuildThisFileDirectory)</VcpkgManifestRoot>
+    <MySqlConCppRoot Condition="'$(MySqlConCppRoot)' == ''">$(MYSQL_CONCPP_ROOT)</MySqlConCppRoot>
+  </PropertyGroup>
+</Project>

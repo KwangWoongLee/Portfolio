@@ -9,6 +9,10 @@
 #include "IOCPSessionManager.h"
 #include "TimerManager.h"
 #include "ZoneManager.h"
+#include "PlayerManager.h"
+#include "DbConfig.h"
+#include "MySqlCharacterRepository.h"
+#include "MySqlConnectionPool.h"
 #include <iomanip>
 
 auto constexpr WORLD_PORT = 9000;
@@ -34,8 +38,44 @@ namespace
     }
 }
 
+WorldServerApp::WorldServerApp() = default;
+
+WorldServerApp::~WorldServerApp() = default;
+
 bool WorldServerApp::Init()
 {
+    auto const dbConfig = DbConfig::FromEnvironment();
+    if (not dbConfig.IsValid())
+    {
+        std::cout << "[WorldServer] Invalid database configuration" << std::endl;
+        return false;
+    }
+
+    _dbConnectionPool = std::make_shared<MySqlConnectionPool>();
+    if (not _dbConnectionPool->Initialize(dbConfig))
+    {
+        std::cout << "[WorldServer] Database initialization failed: "
+            << _dbConnectionPool->GetLastError() << std::endl;
+        return false;
+    }
+
+    if (dbConfig._enabled)
+    {
+        std::cout << "[WorldServer] MySQL ready (connections="
+            << _dbConnectionPool->GetConnectionCount() << ")" << std::endl;
+    }
+    else
+    {
+        std::cout << "[WorldServer] MySQL disabled" << std::endl;
+    }
+
+    _characterRepository = std::make_shared<MySqlCharacterRepository>(_dbConnectionPool);
+    if (not PlayerManager::Singleton::GetInstance().Initialize(_characterRepository))
+    {
+        std::cout << "[WorldServer] Failed to initialize PlayerManager" << std::endl;
+        return false;
+    }
+
     _iocp = std::make_shared<IOCP>();
     _engine = std::make_unique<ServerEngine>(_iocp);
 
@@ -105,6 +145,12 @@ void WorldServerApp::Stop()
     MetricsLogger::Singleton::GetInstance().Stop();
     WorldActorRegistry::Singleton::GetInstance().Remove(DEFAULT_WORLD_ID);
     _engine->Stop();
+    PlayerManager::Singleton::GetInstance().Shutdown();
+    _characterRepository.reset();
+    if (_dbConnectionPool)
+    {
+        _dbConnectionPool->Shutdown();
+    }
 }
 
 void WorldServerApp::InitZones()

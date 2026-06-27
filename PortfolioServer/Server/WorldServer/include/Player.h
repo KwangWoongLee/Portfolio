@@ -1,16 +1,23 @@
 #pragma once
 #include "GameObject.h"
 #include "IOCPSession.h"
+#include "CharacterRepository.h"
 #include "PlayerMessages.h"
 
 class Player final
     : public GameObject
 {
 public:
-    Player(ActorId const actorId, std::shared_ptr<IOCPSession> const& session)
+    Player(
+        ActorId const actorId,
+        CharacterId const characterId,
+        std::shared_ptr<IOCPSession> const& session,
+        std::shared_ptr<ICharacterRepository> characterRepository)
         : GameObject(actorId)
+        , _characterId(characterId)
         , _session(session)
         , _sessionId(session->GetSessionId())
+        , _characterRepository(std::move(characterRepository))
         , _hp(MAX_HP)
     {
     }
@@ -45,8 +52,10 @@ private:
 
     class GoldUndoLog;
 
+    CharacterId const _characterId;
     std::weak_ptr<IOCPSession> const _session;
     SessionId const _sessionId;
+    std::shared_ptr<ICharacterRepository> const _characterRepository;
     ZoneId _currentZoneId{ INVALID_ZONE_ID };
     ZoneId _pendingZoneId{ INVALID_ZONE_ID };
     int32_t _hp{};
