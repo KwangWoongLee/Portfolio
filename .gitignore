@@ -13,6 +13,7 @@ Debug/
 Release/
 x64/
 x86/
+vcpkg_installed/
 
 # 기타
 *.ipch
