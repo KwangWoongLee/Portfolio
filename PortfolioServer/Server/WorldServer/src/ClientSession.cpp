@@ -1,6 +1,8 @@
 #include "CorePch.h"
 #include "ClientSession.h"
+#include "PlayerManager.h"
 #include "PlayerPost.h"
+#include "WorldTypes.h"
 #include "ZoneManager.h"
 #include "ZonePost.h"
 #include "PacketId.h"
@@ -8,9 +10,10 @@
 
 void ClientSession::HandlePacket(uint16_t const packetId, void const* const payload, uint32_t const size)
 {
-    if (INVALID_ACTOR_ID == _actorId)
+    auto const actorId = GetActorId();
+    if (INVALID_ACTOR_ID == actorId)
     {
-        // TODO: 로그인 전 패킷 처리 (인증/캐릭터 선택 등)
+        // TODO: handle packets that arrive before character binding is completed.
         return;
     }
 
@@ -23,7 +26,7 @@ void ClientSession::HandlePacket(uint16_t const packetId, void const* const payl
             {
                 return;
             }
-            SendToPlayer(_actorId, PlayerMsg::MoveRequest{ pkt._x, pkt._z });
+            SendToPlayer(actorId, PlayerMsg::MoveRequest{ pkt._x, pkt._z });
         } break;
 
     case EPacketId::C2WAttack:
@@ -33,7 +36,7 @@ void ClientSession::HandlePacket(uint16_t const packetId, void const* const payl
             {
                 return;
             }
-            SendToPlayer(_actorId, PlayerMsg::AttackRequest{ pkt._targetActorId });
+            SendToPlayer(actorId, PlayerMsg::AttackRequest{ pkt._targetActorId });
         } break;
 
     default:
@@ -43,32 +46,71 @@ void ClientSession::HandlePacket(uint16_t const packetId, void const* const payl
 
 void ClientSession::OnConnected()
 {
-    auto const session = std::static_pointer_cast<IOCPSession>(shared_from_this());
-    // TODO: Replace this temporary mapping after authentication and character selection are implemented.
-    auto const characterId = CharacterId{ static_cast<int64_t>(GetSessionId()) };
-    _actorId = PlayerManager::Singleton::GetInstance().Create(session, characterId);
-    if (INVALID_ACTOR_ID == _actorId)
+    SetActorId(INVALID_ACTOR_ID);
+    _disconnected.store(false, std::memory_order_relaxed);
+
+    auto const self = std::static_pointer_cast<ClientSession>(shared_from_this());
+    auto const enqueued = PlayerManager::Singleton::GetInstance().CreateCharacterAsync(
+        DEFAULT_WORLD_ID,
+        [weakSelf = std::weak_ptr<ClientSession>{ self }](CharacterLoadResult result)
+        {
+            auto self = weakSelf.lock();
+            if (not self || self->_disconnected.load(std::memory_order_relaxed))
+            {
+                return;
+            }
+
+            if (not result.Succeeded() || not result._profile.IsValid())
+            {
+                std::cerr << "[CharacterRepository] CreateCharacter failed: "
+                    << result._message << std::endl;
+                self->Disconnect(EDisconnectReason::InvalidOperation);
+                return;
+            }
+
+            auto const session = std::static_pointer_cast<IOCPSession>(self);
+            auto const actorId = PlayerManager::Singleton::GetInstance().CreateLoaded(
+                session,
+                result._profile);
+            if (INVALID_ACTOR_ID == actorId)
+            {
+                self->Disconnect(EDisconnectReason::InvalidOperation);
+                return;
+            }
+
+            self->SetActorId(actorId);
+            if (self->_disconnected.load(std::memory_order_relaxed))
+            {
+                self->SetActorId(INVALID_ACTOR_ID);
+                PlayerTaskRunner::PostDisconnect(actorId);
+                return;
+            }
+
+            std::cout << "[ClientSession:" << self->GetSessionId()
+                << "] Connected (actor=" << actorId << ")" << std::endl;
+
+            // RequestMovePlayer reserves enter permission, then Zone enter sets Player current zone.
+            ZoneManager::Singleton::GetInstance().RequestMovePlayer(actorId, 1);
+        });
+
+    if (not enqueued)
     {
         Disconnect(EDisconnectReason::InvalidOperation);
-        return;
     }
-
-    std::cout << "[ClientSession:" << GetSessionId() << "] Connected (actor=" << _actorId << ")" << std::endl;
-
-    // RequestMovePlayer가 enter permit을 예약하고, Zone enter 성공 후 Player current zone을 확정.
-    ZoneManager::Singleton::GetInstance().RequestMovePlayer(_actorId, 1);
 }
 
 void ClientSession::OnDisconnected()
 {
-    if (INVALID_ACTOR_ID == _actorId)
+    _disconnected.store(true, std::memory_order_relaxed);
+
+    auto const actorId = GetActorId();
+    if (INVALID_ACTOR_ID == actorId)
     {
         return;
     }
 
-    PlayerTaskRunner::PostDisconnect(_actorId);
+    SetActorId(INVALID_ACTOR_ID);
+    PlayerTaskRunner::PostDisconnect(actorId);
 
-    std::cout << "[ClientSession:" << GetSessionId() << " actor:" << _actorId << "] Disconnected" << std::endl;
-
-    _actorId = INVALID_ACTOR_ID;
+    std::cout << "[ClientSession:" << GetSessionId() << " actor:" << actorId << "] Disconnected" << std::endl;
 }

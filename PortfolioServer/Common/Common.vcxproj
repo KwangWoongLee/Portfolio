@@ -70,6 +70,7 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="include\UniqueIdGenerator.h" />
     <ClInclude Include="include\Actor.h" />
     <ClInclude Include="include\CharacterTypes.h" />
     <ClInclude Include="include\ActorPost.h" />

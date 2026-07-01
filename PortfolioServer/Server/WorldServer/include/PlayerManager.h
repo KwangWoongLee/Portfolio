@@ -1,16 +1,23 @@
 #pragma once
 #include "CorePch.h"
 #include "Player.h"
+#include "WorldTypes.h"
 
 class PlayerManager final
 {
 public:
     using Singleton = Singleton<PlayerManager>;
+    using CharacterLoadCompleted = std::function<void(CharacterLoadResult)>;
 
     bool Initialize(std::shared_ptr<ICharacterRepository> characterRepository);
     void Shutdown();
 
-    ActorId Create(std::shared_ptr<IOCPSession> const& session, CharacterId characterId);
+    bool CreateCharacterAsync(
+        WorldId worldId,
+        CharacterLoadCompleted completed);
+    ActorId CreateLoaded(
+        std::shared_ptr<IOCPSession> const& session,
+        CharacterProfile const& profile);
     size_t GetCount() const;
 
 private:

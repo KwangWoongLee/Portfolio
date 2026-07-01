@@ -11,6 +11,7 @@ public:
     Player(
         ActorId const actorId,
         CharacterId const characterId,
+        int64_t const gold,
         std::shared_ptr<IOCPSession> const& session,
         std::shared_ptr<ICharacterRepository> characterRepository)
         : GameObject(actorId)
@@ -19,6 +20,7 @@ public:
         , _sessionId(session->GetSessionId())
         , _characterRepository(std::move(characterRepository))
         , _hp(MAX_HP)
+        , _gold(gold)
     {
     }
 
@@ -48,7 +50,6 @@ private:
     void OnMessage(PlayerMsg::SiegeDeclarationRefundRequested const& msg);
 
     static int32_t constexpr MAX_HP = 5000;
-    static int64_t constexpr DEFAULT_GOLD = 1'000'000;
 
     class GoldUndoLog;
 
@@ -59,6 +60,6 @@ private:
     ZoneId _currentZoneId{ INVALID_ZONE_ID };
     ZoneId _pendingZoneId{ INVALID_ZONE_ID };
     int32_t _hp{};
-    int64_t _gold{ DEFAULT_GOLD };
+    int64_t _gold{};
     std::unordered_set<SiegeDeclarationId> _paidSiegeDeclarationIds;
 };

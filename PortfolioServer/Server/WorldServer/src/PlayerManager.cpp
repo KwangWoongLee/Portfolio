@@ -1,10 +1,72 @@
 #include "CorePch.h"
 #include <random>
+#include "DbDispatcher.h"
 #include "PlayerManager.h"
+#include "UniqueIdGenerator.h"
 
 namespace
 {
     auto constexpr SPAWN_AREA_HALF_EXTENT = 1000.0f;
+    auto constexpr DEFAULT_CHARACTER_GOLD = 1'000'000;
+
+    std::string BuildCharacterName(CharacterId const characterId)
+    {
+        return std::format("Player{}", static_cast<int64_t>(characterId));
+    }
+
+    class LoadOrCreateCharacterCommand final
+        : public IDbCommand
+    {
+    public:
+        LoadOrCreateCharacterCommand(
+            std::shared_ptr<ICharacterRepository> characterRepository,
+            CharacterId const characterId,
+            std::string characterName,
+            PlayerManager::CharacterLoadCompleted completed)
+            : _characterRepository(std::move(characterRepository))
+            , _characterId(characterId)
+            , _characterName(std::move(characterName))
+            , _completed(std::move(completed))
+        {
+        }
+
+        EDbCommandResult Execute() override
+        {
+            if (not _characterRepository)
+            {
+                _result = CharacterLoadResult{
+                    ECharacterRepositoryError::ConnectionUnavailable,
+                    "character repository unavailable",
+                };
+                return EDbCommandResult::Failed;
+            }
+
+            _result = _characterRepository->GetOrCreateCharacter(
+                _characterId,
+                _characterName,
+                DEFAULT_CHARACTER_GOLD);
+            return _result.Succeeded() ? EDbCommandResult::Succeeded : EDbCommandResult::Failed;
+        }
+
+        void OnCompleted(EDbCommandResult const result) override
+        {
+            (void)result;
+            if (_completed)
+            {
+                _completed(std::move(_result));
+            }
+        }
+
+    private:
+        std::shared_ptr<ICharacterRepository> _characterRepository;
+        CharacterId _characterId{ INVALID_CHARACTER_ID };
+        std::string _characterName;
+        PlayerManager::CharacterLoadCompleted _completed;
+        CharacterLoadResult _result{
+            ECharacterRepositoryError::QueryFailed,
+            "character load was not executed",
+        };
+    };
 }
 
 bool PlayerManager::Initialize(std::shared_ptr<ICharacterRepository> characterRepository)
@@ -26,9 +88,44 @@ void PlayerManager::Shutdown()
     _characterRepository.reset();
 }
 
-ActorId PlayerManager::Create(
+bool PlayerManager::CreateCharacterAsync(
+    WorldId const worldId,
+    CharacterLoadCompleted completed)
+{
+    std::shared_ptr<ICharacterRepository> characterRepository;
+    {
+        std::shared_lock lock(_mutex);
+        characterRepository = _characterRepository;
+    }
+
+    if (not characterRepository || INVALID_WORLD_ID == worldId || not completed)
+    {
+        return false;
+    }
+
+    auto const characterIdValue = UniqueIdGenerator::Generate(
+        EUniqueIdKind::Character,
+        static_cast<int64_t>(worldId));
+    if (not characterIdValue)
+    {
+        return false;
+    }
+
+    auto const characterId = CharacterId{ *characterIdValue };
+    auto characterName = BuildCharacterName(characterId);
+
+    return DbDispatcher::Singleton::GetInstance().Enqueue(
+        static_cast<int64_t>(characterId),
+        std::make_unique<LoadOrCreateCharacterCommand>(
+            std::move(characterRepository),
+            characterId,
+            std::move(characterName),
+            std::move(completed)));
+}
+
+ActorId PlayerManager::CreateLoaded(
     std::shared_ptr<IOCPSession> const& session,
-    CharacterId const characterId)
+    CharacterProfile const& profile)
 {
     static thread_local std::mt19937 rng(std::random_device{}());
     static thread_local std::uniform_real_distribution<float> dist(
@@ -39,15 +136,17 @@ ActorId PlayerManager::Create(
         std::shared_lock lock(_mutex);
         characterRepository = _characterRepository;
     }
-    if (not characterRepository || INVALID_CHARACTER_ID == characterId)
+
+    if (not session || not characterRepository || not profile.IsValid() || profile._gold < 0)
     {
         return INVALID_ACTOR_ID;
     }
 
-    auto const actorId = ActorIdGenerator::Generate();
+    auto const actorId = ActorId{ static_cast<int64_t>(profile._id) };
     auto player = std::make_shared<Player>(
         actorId,
-        characterId,
+        profile._id,
+        profile._gold,
         session,
         std::move(characterRepository));
     player->SetPosition({ dist(rng), dist(rng) });

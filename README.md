@@ -255,3 +255,8 @@
 이 프로젝트는 개인 포트폴리오 및 학습 목적의 프로젝트입니다.
 
 IOCP 네트워크 코어는 학생 시절부터 작성해 온 개인 코드를 현재 지식 수준에 맞게 리팩터링한 것이며, 재직 중인 회사의 소스 코드나 내부 데이터를 포함하지 않습니다.
+
+
+## MySQL 및 단위 테스트 환경
+
+MySQL 연결, SP 초기화, 환경 변수와 GoogleTest 실행 방법은 PortfolioServer/docs/database-and-tests-setup.md에 정리합니다.
