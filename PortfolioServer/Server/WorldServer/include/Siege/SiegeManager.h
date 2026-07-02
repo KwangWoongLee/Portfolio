@@ -4,7 +4,7 @@
 class SiegeManager final
 {
 public:
-    SiegeManager() = default;
+    explicit SiegeManager(WorldId worldId);
 
     SiegeManager(SiegeManager const&) = delete;
     SiegeManager& operator=(SiegeManager const&) = delete;
@@ -55,10 +55,9 @@ private:
     void FreezeParticipants(SiegeWarEntry& entry);
     void ReleaseParticipants(SiegeWarEntry& entry);
 
+    WorldId const _worldId;
     std::unordered_map<SiegeWarId, SiegeWarEntry> _siegeWars;
     std::unordered_map<SiegeWarType, SiegeWarId, SiegeWarTypeHash> _currentSiegeWarIds;
     std::unordered_map<SiegeDeclarationId, SiegeDeclarationEntry> _declarations;
     std::unordered_map<GuildId, uint32_t> _guildParticipationLockCounts;
-    int64_t _nextSiegeWarId{ 1 };
-    int64_t _nextDeclarationId{ 1 };
 };

@@ -8,7 +8,11 @@ class WorldTaskRunner;
 class WorldActor final
 {
 public:
-    explicit WorldActor(WorldId worldId) : _worldId(worldId) {}
+    explicit WorldActor(WorldId worldId)
+        : _worldId(worldId)
+        , _guildManager(worldId)
+    {
+    }
     ~WorldActor();
 
     WorldActor(WorldActor const&) = delete;

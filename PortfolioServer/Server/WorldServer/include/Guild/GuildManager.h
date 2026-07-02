@@ -8,7 +8,7 @@ class SiegeWarTaskRunner;
 class GuildManager final
 {
 public:
-    GuildManager() = default;
+    explicit GuildManager(WorldId worldId);
 
     GuildManager(GuildManager const&) = delete;
     GuildManager& operator=(GuildManager const&) = delete;
@@ -43,10 +43,10 @@ private:
     bool ApplySiegeWarSnapshot(SiegeWarSnapshot snapshot);
     std::shared_ptr<SiegeWar> FindSiegeWarInternal(SiegeWarId siegeWarId) const;
 
+    WorldId const _worldId;
     mutable std::shared_mutex _mutex;
     std::unordered_map<GuildId, std::shared_ptr<Guild>> _guilds;
     std::unordered_map<ActorId, GuildId> _guildIdsByMember;
     std::unordered_map<std::string, GuildId> _guildIdsByName;
     SiegeManager _siegeManager;
-    int64_t _nextGuildId{ 1 };
 };

@@ -1,10 +1,11 @@
 #pragma once
 #include "CmsTypes.h"
+#include <vector>
 
 struct SiegeScheduleData final
 {
     SiegeScheduleType _type;
-    SiegeWarType _siegeWarType;
+    std::vector<SiegeWarType> _siegeWarTypes;
     int32_t _dayOfWeek{};
     int32_t _startHour{};
     int32_t _startMinute{};

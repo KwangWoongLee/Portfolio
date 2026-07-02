@@ -29,7 +29,6 @@ private:
     GuildId const _guildId;
     std::string const _name;
 
-    mutable std::shared_mutex _mutex;
     ActorId _leaderActorId{ INVALID_ACTOR_ID };
     std::unordered_set<ActorId> _members;
 };

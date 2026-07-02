@@ -1,5 +1,11 @@
 #include "CorePch.h"
 #include "Siege/SiegeManager.h"
+#include "UniqueIdGenerator.h"
+
+SiegeManager::SiegeManager(WorldId const worldId)
+    : _worldId(worldId)
+{
+}
 
 SiegeWarId SiegeManager::RegisterSiegeWar(
     WorldId const worldId,
@@ -7,12 +13,20 @@ SiegeWarId SiegeManager::RegisterSiegeWar(
     SiegeWar::Clock::time_point const scheduledAt,
     GuildId const initialDefenderGuildId)
 {
-    if (_currentSiegeWarIds.contains(data._type))
+    if (worldId != _worldId || _currentSiegeWarIds.contains(data._type))
     {
         return INVALID_SIEGE_WAR_ID;
     }
 
-    auto const siegeWarId = SiegeWarId{ _nextSiegeWarId++ };
+    auto const siegeWarIdValue = UniqueIdGenerator::Generate(
+        EUniqueIdKind::SiegeWar,
+        static_cast<int64_t>(_worldId));
+    if (not siegeWarIdValue)
+    {
+        return INVALID_SIEGE_WAR_ID;
+    }
+
+    auto const siegeWarId = SiegeWarId{ *siegeWarIdValue };
     auto const declarationCostGold = data._declarationCostGold;
     auto siegeWar = std::make_shared<SiegeWar>(
         worldId,
@@ -64,7 +78,15 @@ std::optional<SiegeDeclarationPayment> SiegeManager::TryReserveDeclaration(
         return std::nullopt;
     }
 
-    auto const declarationId = SiegeDeclarationId{ _nextDeclarationId++ };
+    auto const declarationIdValue = UniqueIdGenerator::Generate(
+        EUniqueIdKind::SiegeDeclaration,
+        static_cast<int64_t>(_worldId));
+    if (not declarationIdValue)
+    {
+        return std::nullopt;
+    }
+
+    auto const declarationId = SiegeDeclarationId{ *declarationIdValue };
     SiegeDeclarationPayment const payment{
         declarationId,
         requesterActorId,

@@ -87,15 +87,40 @@ bool CmsManager::LoadSiegeSchedule(std::string const& dataPath)
 
     for (auto const& row : csv.GetRows())
     {
-        SiegeScheduleData data;
-        data._type = SiegeScheduleType{ row.GetInt32(0) };
-        data._siegeWarType = SiegeWarType{ row.GetInt32(1) };
-        data._dayOfWeek = row.GetInt32(2);
-        data._startHour = row.GetInt32(3);
-        data._startMinute = row.GetInt32(4);
+        auto const scheduleType = SiegeScheduleType{ row.GetInt32(0) };
+        auto const siegeWarType = SiegeWarType{ row.GetInt32(1) };
+        auto const dayOfWeek = row.GetInt32(2);
+        auto const startHour = row.GetInt32(3);
+        auto const startMinute = row.GetInt32(4);
 
-        auto const type = data._type;
-        _siegeSchedules.emplace(type, std::move(data));
+        if (not _siegeWars.contains(siegeWarType))
+        {
+            return false;
+        }
+
+        auto [iter, inserted] = _siegeSchedules.try_emplace(scheduleType);
+        auto& schedule = iter->second;
+        if (inserted)
+        {
+            schedule._type = scheduleType;
+            schedule._dayOfWeek = dayOfWeek;
+            schedule._startHour = startHour;
+            schedule._startMinute = startMinute;
+        }
+        else if (schedule._dayOfWeek != dayOfWeek ||
+                 schedule._startHour != startHour ||
+                 schedule._startMinute != startMinute)
+        {
+            return false;
+        }
+
+        if (std::ranges::find(schedule._siegeWarTypes, siegeWarType) !=
+            schedule._siegeWarTypes.end())
+        {
+            return false;
+        }
+
+        schedule._siegeWarTypes.emplace_back(siegeWarType);
     }
 
     std::cout << "[CmsManager] SiegeSchedule loaded: " << _siegeSchedules.size() << " entries" << std::endl;

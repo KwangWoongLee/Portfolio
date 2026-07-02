@@ -11,8 +11,6 @@ Guild::Guild(GuildId const guildId, std::string name, ActorId const leaderActorI
 
 GuildSnapshot Guild::CreateSnapshot() const
 {
-    std::shared_lock lock(_mutex);
-
     GuildSnapshot snapshot{
         _guildId,
         _name,
@@ -33,25 +31,21 @@ GuildSnapshot Guild::CreateSnapshot() const
 
 std::string Guild::GetName() const
 {
-    std::shared_lock lock(_mutex);
     return _name;
 }
 
 bool Guild::IsLeader(ActorId const actorId) const
 {
-    std::shared_lock lock(_mutex);
     return _leaderActorId == actorId;
 }
 
 bool Guild::Contains(ActorId const actorId) const
 {
-    std::shared_lock lock(_mutex);
     return _members.contains(actorId);
 }
 
 EGuildOperationError Guild::AddMember(ActorId const actorId)
 {
-    std::unique_lock lock(_mutex);
     if (_members.contains(actorId))
     {
         return EGuildOperationError::AlreadyInGuild;
@@ -66,7 +60,6 @@ EGuildOperationError Guild::RemoveMember(
     std::optional<ActorId> const successorActorId,
     bool& disbanded)
 {
-    std::unique_lock lock(_mutex);
     disbanded = false;
 
     if (not _members.contains(actorId))
@@ -107,8 +100,6 @@ EGuildOperationError Guild::TransferLeader(
     ActorId const leaderActorId,
     ActorId const successorActorId)
 {
-    std::unique_lock lock(_mutex);
-
     if (_leaderActorId != leaderActorId)
     {
         return EGuildOperationError::NotGuildLeader;

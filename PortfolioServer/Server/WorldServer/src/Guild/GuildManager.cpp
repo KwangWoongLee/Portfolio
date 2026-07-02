@@ -1,5 +1,12 @@
 #include "CorePch.h"
 #include "Guild/GuildManager.h"
+#include "UniqueIdGenerator.h"
+
+GuildManager::GuildManager(WorldId const worldId)
+    : _worldId(worldId)
+    , _siegeManager(worldId)
+{
+}
 
 std::optional<GuildSnapshot> GuildManager::GetGuildSnapshot(GuildId const guildId) const
 {
@@ -55,7 +62,15 @@ GuildOperationResult GuildManager::CreateGuild(ActorId const leaderActorId, std:
         return { EGuildOperationError::GuildNameAlreadyExists };
     }
 
-    auto const guildId = GuildId{ _nextGuildId++ };
+    auto const guildIdValue = UniqueIdGenerator::Generate(
+        EUniqueIdKind::Guild,
+        static_cast<int64_t>(_worldId));
+    if (not guildIdValue)
+    {
+        return { EGuildOperationError::InvalidArgument };
+    }
+
+    auto const guildId = GuildId{ *guildIdValue };
     auto guild = std::make_shared<Guild>(guildId, name, leaderActorId);
 
     _guildIdsByMember.emplace(leaderActorId, guildId);
@@ -155,26 +170,23 @@ GuildOperationResult GuildManager::TransferLeader(
     ActorId const leaderActorId,
     ActorId const successorActorId)
 {
-    std::shared_ptr<Guild> guild;
-    GuildId guildId{ INVALID_GUILD_ID };
+    std::unique_lock lock(_mutex);
+    auto const memberIter = _guildIdsByMember.find(leaderActorId);
+    if (memberIter == _guildIdsByMember.end())
     {
-        std::shared_lock lock(_mutex);
-        auto const memberIter = _guildIdsByMember.find(leaderActorId);
-        if (memberIter == _guildIdsByMember.end())
-        {
-            return { EGuildOperationError::NotGuildMember };
-        }
-
-        guildId = memberIter->second;
-        auto const guildIter = _guilds.find(guildId);
-        if (guildIter == _guilds.end())
-        {
-            return { EGuildOperationError::GuildNotFound };
-        }
-        guild = guildIter->second;
+        return { EGuildOperationError::NotGuildMember };
     }
 
-    auto const error = guild->TransferLeader(leaderActorId, successorActorId);
+    auto const guildId = memberIter->second;
+    auto const guildIter = _guilds.find(guildId);
+    if (guildIter == _guilds.end())
+    {
+        return { EGuildOperationError::GuildNotFound };
+    }
+
+    auto const error = guildIter->second->TransferLeader(
+        leaderActorId,
+        successorActorId);
     return { error, guildId };
 }
 
