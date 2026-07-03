@@ -1,2 +1,3 @@
 Id,Name,PrepDurationSec,AttackDurationSec,SwapSideDurationSec,DeclarationCostGold
 1,아크로폴리스,300,600,30,100000
+2,FrontierFortress,300,600,30,100000

@@ -44,6 +44,12 @@ std::optional<SiegeWarSnapshot> GuildManager::GetSiegeWarSnapshot(SiegeWarId con
     return _siegeManager.GetSnapshot(siegeWarId);
 }
 
+GuildId GuildManager::GetSiegeDefenderGuildId(SiegeWarType const siegeWarType) const
+{
+    std::shared_lock lock(_mutex);
+    return _siegeManager.GetDefenderGuildId(siegeWarType);
+}
+
 GuildOperationResult GuildManager::CreateGuild(ActorId const leaderActorId, std::string name)
 {
     if (leaderActorId == INVALID_ACTOR_ID || name.empty())
@@ -136,8 +142,7 @@ GuildOperationResult GuildManager::LeaveGuild(
     }
 
     auto const before = guildIter->second->CreateSnapshot();
-    auto const wouldDisband = before._members.size() == 1 && before._leaderActorId == actorId;
-    if (wouldDisband && _siegeManager.IsGuildParticipationLocked(guildId))
+    if (_siegeManager.IsGuildParticipationLocked(guildId))
     {
         return {
             EGuildOperationError::SiegeParticipationLocked,
@@ -182,6 +187,14 @@ GuildOperationResult GuildManager::TransferLeader(
     if (guildIter == _guilds.end())
     {
         return { EGuildOperationError::GuildNotFound };
+    }
+
+    if (_siegeManager.IsGuildParticipationLocked(guildId))
+    {
+        return {
+            EGuildOperationError::SiegeParticipationLocked,
+            guildId,
+        };
     }
 
     auto const error = guildIter->second->TransferLeader(
@@ -231,15 +244,13 @@ ESiegeDeclarationCompletion GuildManager::CompleteSiegeDeclaration(
 SiegeWarId GuildManager::RegisterSiegeWar(
     WorldId const worldId,
     SiegeWarData data,
-    SiegeWar::Clock::time_point const scheduledAt,
-    GuildId const initialDefenderGuildId)
+    SiegeWar::Clock::time_point const scheduledAt)
 {
     std::unique_lock lock(_mutex);
     return _siegeManager.RegisterSiegeWar(
         worldId,
         std::move(data),
-        scheduledAt,
-        initialDefenderGuildId);
+        scheduledAt);
 }
 
 bool GuildManager::ApplySiegeWarSnapshot(SiegeWarSnapshot snapshot)

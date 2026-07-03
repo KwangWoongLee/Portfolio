@@ -4,15 +4,12 @@
 
 class SiegeWarTaskRunner;
 class WorldTaskRunner;
+struct SiegeScheduleData;
 
 class WorldActor final
 {
 public:
-    explicit WorldActor(WorldId worldId)
-        : _worldId(worldId)
-        , _guildManager(worldId)
-    {
-    }
+    explicit WorldActor(WorldId worldId);
     ~WorldActor();
 
     WorldActor(WorldActor const&) = delete;
@@ -37,13 +34,18 @@ private:
     void OnMessage(WorldMsg::SiegeDeclarationPaymentCompleted const& msg);
     void OnMessage(WorldMsg::SiegeDeclarationPaymentTimedOut const& msg);
     void OnMessage(WorldMsg::RegisterSiegeWar const& msg);
+    void OnMessage(WorldMsg::SiegeScheduleTriggered const& msg);
     void OnMessage(WorldMsg::SiegeWarSnapshotUpdated const& msg);
 
     std::shared_ptr<SiegeWar> FindSiegeWarInternal(SiegeWarId siegeWarId) const;
     void CancelSiegeDeclarationPaymentTimer(SiegeDeclarationId declarationId);
+    void CancelSiegeWarWakeUpTimer(SiegeWarId siegeWarId);
+    bool ScheduleSiegeWarWakeUp(SiegeWarId siegeWarId);
+    bool ScheduleNextSiege(SiegeScheduleData const& schedule);
 
     WorldId const _worldId;
     GuildManager _guildManager;
-    std::unordered_map<SiegeWarId, TimerId> _siegeWarTimerIds;
+    std::unordered_map<SiegeScheduleType, TimerId, SiegeScheduleTypeHash> _siegeScheduleTimerIds;
+    std::unordered_map<SiegeWarId, TimerId> _siegeWarWakeUpTimerIds;
     std::unordered_map<SiegeDeclarationId, TimerId> _siegeDeclarationPaymentTimerIds;
 };

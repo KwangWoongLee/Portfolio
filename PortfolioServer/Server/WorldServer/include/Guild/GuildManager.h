@@ -18,6 +18,7 @@ public:
     std::optional<GuildSnapshot> GetGuildSnapshot(GuildId guildId) const;
     std::optional<GuildSnapshot> GetGuildSnapshotByMember(ActorId actorId) const;
     std::optional<SiegeWarSnapshot> GetSiegeWarSnapshot(SiegeWarId siegeWarId) const;
+    GuildId GetSiegeDefenderGuildId(SiegeWarType siegeWarType) const;
 
 private:
     friend class WorldActor;
@@ -38,8 +39,7 @@ private:
     SiegeWarId RegisterSiegeWar(
         WorldId worldId,
         SiegeWarData data,
-        SiegeWar::Clock::time_point scheduledAt,
-        GuildId initialDefenderGuildId);
+        SiegeWar::Clock::time_point scheduledAt);
     bool ApplySiegeWarSnapshot(SiegeWarSnapshot snapshot);
     std::shared_ptr<SiegeWar> FindSiegeWarInternal(SiegeWarId siegeWarId) const;
 

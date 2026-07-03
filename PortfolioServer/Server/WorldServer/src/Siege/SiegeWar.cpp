@@ -118,6 +118,33 @@ SiegeWarSnapshot SiegeWar::CreateSnapshot() const
     };
 }
 
+std::optional<SiegeWar::Clock::time_point> SiegeWar::GetNextWakeUpTime() const
+{
+    switch (_stateMachine.GetState())
+    {
+    case ESiegeWarState::Scheduled:
+        return _scheduledAt;
+    case ESiegeWarState::Prepare:
+        return AddDuration(_phaseStartedAt, _data._prepDurationSec);
+    case ESiegeWarState::InProgress:
+        if (_progressStep == ESiegeWarProgressStep::OccupationGrace)
+        {
+            auto const graceDeadline = AddDuration(_stepStartedAt, _data._swapSideDurationSec);
+            auto const finalDeadline = GetFinalDeadline();
+            if (graceDeadline < finalDeadline)
+            {
+                return graceDeadline;
+            }
+            return finalDeadline;
+        }
+        return GetFinalDeadline();
+    case ESiegeWarState::Finished:
+    case ESiegeWarState::Canceled:
+    default:
+        return std::nullopt;
+    }
+}
+
 StateTransitionResult<ESiegeWarState> SiegeWar::Tick(Clock::time_point const now)
 {
     TickContext context{ *this, now };
@@ -147,8 +174,29 @@ bool SiegeWar::OnOccupied(GuildId const guildId, Clock::time_point const now)
         return false;
     }
 
-    if (_progressStep == ESiegeWarProgressStep::OccupationGrace && _defenderGuildId != guildId)
+    if (HasReachedFinalDeadline(now))
     {
+        ResolveByFinalDeadline();
+        TickContext context{ *this, now };
+        auto result = _stateMachine.TryTransition(
+            ESiegeWarState::Finished,
+            "siege final deadline reached before occupation",
+            context);
+        if (result.Succeeded())
+        {
+            ++_revision;
+            return true;
+        }
+        return false;
+    }
+
+    if (_progressStep == ESiegeWarProgressStep::OccupationGrace)
+    {
+        if (_defenderGuildId == guildId)
+        {
+            return false;
+        }
+
         _defenderGuildId = guildId;
         BeginAttackWindow(now);
         ++_revision;
@@ -234,26 +282,19 @@ std::optional<SiegeWar::SiegeStateMachine::TransitionRequest> SiegeWar::TickInPr
 {
     auto& war = context._war;
 
-    if (war._progressStep == ESiegeWarProgressStep::AttackWindow)
+    if (war.HasReachedFinalDeadline(context._now))
     {
-        if (not war.HasElapsed(war._stepStartedAt, context._now, war._data._attackDurationSec))
-        {
-            return std::nullopt;
-        }
-
-        if (IsValidGuildId(war._defenderGuildId))
-        {
-            war.ResolveByCurrentDefender();
-        }
-        else
-        {
-            war.ResolveAsDraw();
-        }
-
+        war.ResolveByFinalDeadline();
         return SiegeStateMachine::TransitionRequest{
             ESiegeWarState::Finished,
-            "attack window elapsed",
+            "siege final deadline reached",
         };
+    }
+
+    if (war._progressStep == ESiegeWarProgressStep::AttackWindow)
+    {
+        // Occupation can reopen AttackWindow, but it never extends the fixed siege deadline.
+        return std::nullopt;
     }
 
     if (war._progressStep == ESiegeWarProgressStep::OccupationGrace)
@@ -317,6 +358,28 @@ bool SiegeWar::HasElapsed(
     return now - from >= std::chrono::seconds(durationSec);
 }
 
+bool SiegeWar::HasReachedFinalDeadline(Clock::time_point const now) const
+{
+    return now >= GetFinalDeadline();
+}
+
+SiegeWar::Clock::time_point SiegeWar::AddDuration(
+    Clock::time_point const from,
+    int32_t const durationSec) const
+{
+    if (durationSec <= 0)
+    {
+        return from;
+    }
+
+    return from + std::chrono::seconds(durationSec);
+}
+
+SiegeWar::Clock::time_point SiegeWar::GetFinalDeadline() const
+{
+    return AddDuration(_phaseStartedAt, _data._attackDurationSec);
+}
+
 void SiegeWar::BeginAttackWindow(Clock::time_point const now)
 {
     _progressStep = ESiegeWarProgressStep::AttackWindow;
@@ -327,6 +390,17 @@ void SiegeWar::BeginOccupationGrace(Clock::time_point const now)
 {
     _progressStep = ESiegeWarProgressStep::OccupationGrace;
     _stepStartedAt = now;
+}
+
+void SiegeWar::ResolveByFinalDeadline()
+{
+    if (IsValidGuildId(_defenderGuildId))
+    {
+        ResolveByCurrentDefender();
+        return;
+    }
+
+    ResolveAsDraw();
 }
 
 void SiegeWar::ResolveByCurrentDefender()

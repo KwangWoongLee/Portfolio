@@ -10,8 +10,7 @@ SiegeManager::SiegeManager(WorldId const worldId)
 SiegeWarId SiegeManager::RegisterSiegeWar(
     WorldId const worldId,
     SiegeWarData data,
-    SiegeWar::Clock::time_point const scheduledAt,
-    GuildId const initialDefenderGuildId)
+    SiegeWar::Clock::time_point const scheduledAt)
 {
     if (worldId != _worldId || _currentSiegeWarIds.contains(data._type))
     {
@@ -26,6 +25,13 @@ SiegeWarId SiegeManager::RegisterSiegeWar(
         return INVALID_SIEGE_WAR_ID;
     }
 
+    GuildId initialDefenderGuildId{ INVALID_GUILD_ID };
+    if (auto const defenderIter = _defenderGuildIds.find(data._type);
+        defenderIter != _defenderGuildIds.end())
+    {
+        initialDefenderGuildId = defenderIter->second;
+    }
+
     auto const siegeWarId = SiegeWarId{ *siegeWarIdValue };
     auto const declarationCostGold = data._declarationCostGold;
     auto siegeWar = std::make_shared<SiegeWar>(
@@ -37,14 +43,21 @@ SiegeWarId SiegeManager::RegisterSiegeWar(
 
     auto const snapshot = siegeWar->CreateSnapshot();
     _currentSiegeWarIds.emplace(snapshot._siegeWarType, siegeWarId);
-    _siegeWars.emplace(siegeWarId, SiegeWarEntry{
+    auto [siegeIter, inserted] = _siegeWars.emplace(siegeWarId, SiegeWarEntry{
         std::move(siegeWar),
         snapshot,
         {},
         {},
+        {},
         declarationCostGold,
     });
+    if (not inserted)
+    {
+        _currentSiegeWarIds.erase(snapshot._siegeWarType);
+        return INVALID_SIEGE_WAR_ID;
+    }
 
+    LockParticipant(siegeIter->second, initialDefenderGuildId);
     return siegeWarId;
 }
 
@@ -66,14 +79,18 @@ std::optional<SiegeDeclarationPayment> SiegeManager::TryReserveDeclaration(
     }
 
     auto& entry = siegeIter->second;
-    if (entry._participantsFrozen ||
-        (entry._snapshot._state != ESiegeWarState::Scheduled &&
+    if ((entry._snapshot._state != ESiegeWarState::Scheduled &&
          entry._snapshot._state != ESiegeWarState::Prepare))
     {
         return std::nullopt;
     }
 
     if (entry._declarationIdsByGuild.contains(guildId))
+    {
+        return std::nullopt;
+    }
+
+    if (entry._snapshot._defenderGuildId == guildId)
     {
         return std::nullopt;
     }
@@ -99,6 +116,7 @@ std::optional<SiegeDeclarationPayment> SiegeManager::TryReserveDeclaration(
         currentIter->second,
         payment,
     });
+    LockParticipant(entry, guildId);
     return payment;
 }
 
@@ -131,16 +149,19 @@ ESiegeDeclarationCompletion SiegeManager::CompleteDeclaration(
     }
 
     auto& siegeEntry = siegeIter->second;
-    if (not paid)
-    {
-        siegeEntry._declarationIdsByGuild.erase(declaration._payment._guildId);
-        declaration._state = ESiegeDeclarationState::Canceled;
-        return ESiegeDeclarationCompletion::Canceled;
-    }
-
     if (declaration._state == ESiegeDeclarationState::Canceled)
     {
         return ESiegeDeclarationCompletion::NotFound;
+    }
+
+    if (not paid ||
+        (siegeEntry._snapshot._state != ESiegeWarState::Scheduled &&
+         siegeEntry._snapshot._state != ESiegeWarState::Prepare))
+    {
+        siegeEntry._declarationIdsByGuild.erase(declaration._payment._guildId);
+        UnlockParticipant(siegeEntry, declaration._payment._guildId);
+        declaration._state = ESiegeDeclarationState::Canceled;
+        return ESiegeDeclarationCompletion::Canceled;
     }
 
     declaration._state = ESiegeDeclarationState::Declared;
@@ -166,6 +187,7 @@ void SiegeManager::CancelGuildDeclarations(GuildId const guildId)
         }
 
         siegeEntry._declaredGuildIds.erase(guildId);
+        UnlockParticipant(siegeEntry, guildId);
         siegeEntry._declarationIdsByGuild.erase(declarationIdIter);
     }
 }
@@ -189,13 +211,21 @@ bool SiegeManager::ApplySnapshot(SiegeWarSnapshot snapshot)
         return false;
     }
 
-    auto const previousState = entry._snapshot._state;
     entry._snapshot = std::move(snapshot);
 
-    if (previousState != ESiegeWarState::InProgress &&
-        entry._snapshot._state == ESiegeWarState::InProgress)
+    if (entry._snapshot._state == ESiegeWarState::Finished)
     {
-        FreezeParticipants(entry);
+        if (entry._snapshot._endReason == ESiegeWarEndReason::DefenderVictory &&
+            entry._snapshot._winnerGuildId != INVALID_GUILD_ID)
+        {
+            _defenderGuildIds.insert_or_assign(
+                entry._snapshot._siegeWarType,
+                entry._snapshot._winnerGuildId);
+        }
+        else if (entry._snapshot._endReason == ESiegeWarEndReason::DrawNoOwner)
+        {
+            _defenderGuildIds.erase(entry._snapshot._siegeWarType);
+        }
     }
 
     if (entry._snapshot._state == ESiegeWarState::Finished ||
@@ -236,42 +266,52 @@ std::optional<SiegeWarSnapshot> SiegeManager::GetSnapshot(SiegeWarId const siege
     return iter->second._snapshot;
 }
 
-void SiegeManager::FreezeParticipants(SiegeWarEntry& entry)
+GuildId SiegeManager::GetDefenderGuildId(SiegeWarType const siegeWarType) const
 {
-    if (entry._participantsFrozen)
+    auto const iter = _defenderGuildIds.find(siegeWarType);
+    if (iter == _defenderGuildIds.end())
+    {
+        return INVALID_GUILD_ID;
+    }
+    return iter->second;
+}
+
+void SiegeManager::LockParticipant(SiegeWarEntry& entry, GuildId const guildId)
+{
+    if (guildId == INVALID_GUILD_ID || not entry._lockedGuildIds.insert(guildId).second)
     {
         return;
     }
 
-    for (GuildId const guildId : entry._declaredGuildIds)
+    ++_guildParticipationLockCounts[guildId];
+}
+
+void SiegeManager::UnlockParticipant(SiegeWarEntry& entry, GuildId const guildId)
+{
+    if (not entry._lockedGuildIds.erase(guildId))
     {
-        ++_guildParticipationLockCounts[guildId];
+        return;
     }
-    entry._participantsFrozen = true;
+
+    auto const iter = _guildParticipationLockCounts.find(guildId);
+    if (iter == _guildParticipationLockCounts.end())
+    {
+        return;
+    }
+
+    if (iter->second <= 1)
+    {
+        _guildParticipationLockCounts.erase(iter);
+        return;
+    }
+
+    --iter->second;
 }
 
 void SiegeManager::ReleaseParticipants(SiegeWarEntry& entry)
 {
-    if (not entry._participantsFrozen)
+    while (not entry._lockedGuildIds.empty())
     {
-        return;
+        UnlockParticipant(entry, *entry._lockedGuildIds.begin());
     }
-
-    for (GuildId const guildId : entry._declaredGuildIds)
-    {
-        auto iter = _guildParticipationLockCounts.find(guildId);
-        if (iter == _guildParticipationLockCounts.end())
-        {
-            continue;
-        }
-
-        if (iter->second <= 1)
-        {
-            _guildParticipationLockCounts.erase(iter);
-            continue;
-        }
-
-        --iter->second;
-    }
-    entry._participantsFrozen = false;
 }

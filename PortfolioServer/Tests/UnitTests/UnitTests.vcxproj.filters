@@ -6,7 +6,20 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="MemoryTransactionTests.cpp"><Filter>Tests</Filter></ClCompile>
-    <ClCompile Include="StateMachineTests.cpp"><Filter>Tests</Filter></ClCompile>
+    <ClCompile Include="MemoryTransactionTests.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SiegeWarTests.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="StateMachineTests.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Server\WorldServer\src\Siege\SiegeWar.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

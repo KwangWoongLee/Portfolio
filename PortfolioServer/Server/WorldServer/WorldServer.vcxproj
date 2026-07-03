@@ -61,7 +61,8 @@
     <PostBuildEvent>
       <Command>copy /Y &quot;$(MySqlConCppRoot)\lib64\mysqlcppconn-10-vs14.dll&quot; &quot;$(OutDir)&quot;
 copy /Y &quot;$(MySqlConCppRoot)\lib64\libcrypto-3-x64.dll&quot; &quot;$(OutDir)&quot;
-copy /Y &quot;$(MySqlConCppRoot)\lib64\libssl-3-x64.dll&quot; &quot;$(OutDir)&quot;</Command>
+copy /Y &quot;$(MySqlConCppRoot)\lib64\libssl-3-x64.dll&quot; &quot;$(OutDir)&quot;
+xcopy /Y /I &quot;$(SolutionDir)Common\data\*.csv&quot; &quot;$(OutDir)data&quot;</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -84,7 +85,8 @@ copy /Y &quot;$(MySqlConCppRoot)\lib64\libssl-3-x64.dll&quot; &quot;$(OutDir)&qu
     <PostBuildEvent>
       <Command>copy /Y &quot;$(MySqlConCppRoot)\lib64\mysqlcppconn-10-vs14.dll&quot; &quot;$(OutDir)&quot;
 copy /Y &quot;$(MySqlConCppRoot)\lib64\libcrypto-3-x64.dll&quot; &quot;$(OutDir)&quot;
-copy /Y &quot;$(MySqlConCppRoot)\lib64\libssl-3-x64.dll&quot; &quot;$(OutDir)&quot;</Command>
+copy /Y &quot;$(MySqlConCppRoot)\lib64\libssl-3-x64.dll&quot; &quot;$(OutDir)&quot;
+xcopy /Y /I &quot;$(SolutionDir)Common\data\*.csv&quot; &quot;$(OutDir)data&quot;</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

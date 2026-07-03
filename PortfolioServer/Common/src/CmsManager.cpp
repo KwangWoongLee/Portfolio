@@ -93,6 +93,13 @@ bool CmsManager::LoadSiegeSchedule(std::string const& dataPath)
         auto const startHour = row.GetInt32(3);
         auto const startMinute = row.GetInt32(4);
 
+        if (dayOfWeek < 0 || dayOfWeek > 6 ||
+            startHour < 0 || startHour > 23 ||
+            startMinute < 0 || startMinute > 59)
+        {
+            return false;
+        }
+
         if (not _siegeWars.contains(siegeWarType))
         {
             return false;

@@ -21,3 +21,5 @@ vcpkg_installed/
 
 # Metrics output
 metrics/
+
+PortfolioServer/packages/

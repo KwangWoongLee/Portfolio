@@ -1,5 +1,6 @@
 #include "CorePch.h"
 #include "WorldServerApp.h"
+#include "CmsManager.h"
 #include "WorldActorRegistry.h"
 #include "ClientSession.h"
 #include "ObserverSession.h"
@@ -13,6 +14,7 @@
 #include "DbConfig.h"
 #include "MySqlCharacterRepository.h"
 #include "MySqlConnectionPool.h"
+#include <filesystem>
 #include <iomanip>
 
 auto constexpr WORLD_PORT = 9000;
@@ -22,6 +24,23 @@ auto constexpr OBSERVER_PUSH_INTERVAL = std::chrono::milliseconds(100);
 namespace
 {
     auto const METRICS_CSV_PATH = "metrics/server_metrics.csv";
+
+    std::string BuildCmsDataPath()
+    {
+        std::array<char, MAX_PATH> executablePath{};
+        auto const pathLength = ::GetModuleFileNameA(
+            nullptr,
+            executablePath.data(),
+            static_cast<DWORD>(executablePath.size()));
+        if (pathLength == 0 || pathLength >= executablePath.size())
+        {
+            return "data";
+        }
+
+        auto const executableDirectory = std::filesystem::path(
+            std::string_view(executablePath.data(), pathLength)).parent_path();
+        return (executableDirectory / "data").string();
+    }
 
     std::string BuildDisconnectLogPath()
     {
@@ -44,6 +63,14 @@ WorldServerApp::~WorldServerApp() = default;
 
 bool WorldServerApp::Init()
 {
+    auto const cmsDataPath = BuildCmsDataPath();
+    if (not CmsManager::Singleton::GetInstance().LoadAll(cmsDataPath))
+    {
+        std::cout << "[WorldServer] CMS initialization failed: "
+            << cmsDataPath << std::endl;
+        return false;
+    }
+
     auto const dbConfig = DbConfig::FromEnvironment();
     if (not dbConfig.IsValid())
     {

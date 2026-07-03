@@ -52,7 +52,11 @@ namespace WorldMsg
     {
         SiegeWarData _data;
         SiegeWar::Clock::time_point _scheduledAt;
-        GuildId _initialDefenderGuildId{ INVALID_GUILD_ID };
+    };
+
+    struct SiegeScheduleTriggered final
+    {
+        SiegeScheduleType _scheduleType;
     };
 
     struct SiegeWarSnapshotUpdated final

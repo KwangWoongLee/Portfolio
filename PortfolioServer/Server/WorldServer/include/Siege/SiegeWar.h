@@ -31,6 +31,7 @@ public:
     GuildId GetDefenderGuildId() const;
     GuildId GetWinnerGuildId() const;
     SiegeWarSnapshot CreateSnapshot() const;
+    std::optional<Clock::time_point> GetNextWakeUpTime() const;
 
     StateTransitionResult<ESiegeWarState> Tick(Clock::time_point now);
     StateTransitionResult<ESiegeWarState> Cancel(std::string reason, Clock::time_point now);
@@ -58,8 +59,12 @@ private:
     static void EnterCanceled(TickContext& context);
 
     bool HasElapsed(Clock::time_point from, Clock::time_point now, int32_t durationSec) const;
+    bool HasReachedFinalDeadline(Clock::time_point now) const;
+    Clock::time_point AddDuration(Clock::time_point from, int32_t durationSec) const;
+    Clock::time_point GetFinalDeadline() const;
     void BeginAttackWindow(Clock::time_point now);
     void BeginOccupationGrace(Clock::time_point now);
+    void ResolveByFinalDeadline();
     void ResolveByCurrentDefender();
     void ResolveAsDraw();
 

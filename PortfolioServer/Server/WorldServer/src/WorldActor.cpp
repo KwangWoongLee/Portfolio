@@ -1,18 +1,106 @@
 #include "CorePch.h"
 #include "WorldActor.h"
+#include "CmsManager.h"
 #include "PlayerPost.h"
 #include "Siege/SiegeWarTaskRunner.h"
 #include "TimerManager.h"
+#include "WorldPost.h"
+#include <ctime>
 
 namespace
 {
-    auto constexpr SIEGE_WAR_TICK_INTERVAL = std::chrono::seconds(1);
+    std::chrono::milliseconds GetWakeUpDelay(SiegeWar::Clock::time_point const wakeUpTime)
+    {
+        auto const now = SiegeWar::Clock::now();
+        if (wakeUpTime <= now)
+        {
+            return std::chrono::milliseconds(1);
+        }
+
+        auto const remaining = wakeUpTime - now;
+        auto delay = std::chrono::duration_cast<std::chrono::milliseconds>(remaining);
+        if (delay < remaining)
+        {
+            ++delay;
+        }
+        if (delay <= std::chrono::milliseconds::zero())
+        {
+            return std::chrono::milliseconds(1);
+        }
+        return delay;
+    }
     auto constexpr SIEGE_DECLARATION_PAYMENT_TIMEOUT = std::chrono::seconds(5);
+
+    std::optional<std::chrono::milliseconds> GetNextScheduleDelay(
+        SiegeScheduleData const& schedule)
+    {
+        auto const now = std::chrono::system_clock::now();
+        auto const nowTime = std::chrono::system_clock::to_time_t(now);
+
+        std::tm localNow{};
+        if (0 != ::localtime_s(&localNow, &nowTime))
+        {
+            return std::nullopt;
+        }
+
+        std::tm next = localNow;
+        next.tm_mday += (schedule._dayOfWeek - localNow.tm_wday + 7) % 7;
+        next.tm_hour = schedule._startHour;
+        next.tm_min = schedule._startMinute;
+        next.tm_sec = 0;
+        next.tm_isdst = -1;
+
+        std::time_t nextTime{ std::mktime(&next) };
+        if (nextTime == static_cast<std::time_t>(-1))
+        {
+            return std::nullopt;
+        }
+
+        auto nextTimePoint = std::chrono::system_clock::from_time_t(nextTime);
+        if (nextTimePoint <= now)
+        {
+            next.tm_mday += 7;
+            next.tm_isdst = -1;
+            nextTime = std::mktime(&next);
+            if (nextTime == static_cast<std::time_t>(-1))
+            {
+                return std::nullopt;
+            }
+            nextTimePoint = std::chrono::system_clock::from_time_t(nextTime);
+        }
+
+        auto const delay = std::chrono::duration_cast<std::chrono::milliseconds>(
+            nextTimePoint - now);
+        if (delay <= std::chrono::milliseconds::zero())
+        {
+            return std::chrono::milliseconds(1);
+        }
+        return delay;
+    }
+}
+
+WorldActor::WorldActor(WorldId const worldId)
+    : _worldId(worldId)
+    , _guildManager(worldId)
+{
+    for (auto const* schedule : CmsManager::Singleton::GetConstInstance().GetAllSiegeSchedules())
+    {
+        if (schedule)
+        {
+            (void)ScheduleNextSiege(*schedule);
+        }
+    }
 }
 
 WorldActor::~WorldActor()
 {
-    for (auto const& [siegeWarId, timerId] : _siegeWarTimerIds)
+    for (auto const& [scheduleType, timerId] : _siegeScheduleTimerIds)
+    {
+        (void)scheduleType;
+        TimerManager::Singleton::GetInstance().CancelTimer(timerId);
+    }
+
+    for (auto const& [siegeWarId, timerId] : _siegeWarWakeUpTimerIds)
     {
         (void)siegeWarId;
         TimerManager::Singleton::GetInstance().CancelTimer(timerId);
@@ -93,12 +181,16 @@ void WorldActor::OnMessage(WorldMsg::DeclareSiege const& msg)
 
 void WorldActor::OnMessage(WorldMsg::SiegeDeclarationPaymentCompleted const& msg)
 {
-    CancelSiegeDeclarationPaymentTimer(msg._declarationId);
-
     auto const result = _guildManager.CompleteSiegeDeclaration(
         msg._declarationId,
         msg._requesterActorId,
         msg._paid);
+
+    if (result != ESiegeDeclarationCompletion::RequesterMismatch &&
+        result != ESiegeDeclarationCompletion::NotFound)
+    {
+        CancelSiegeDeclarationPaymentTimer(msg._declarationId);
+    }
 
     if (msg._paid &&
         result != ESiegeDeclarationCompletion::Completed &&
@@ -125,21 +217,48 @@ void WorldActor::OnMessage(WorldMsg::RegisterSiegeWar const& msg)
     auto const siegeWarId = _guildManager.RegisterSiegeWar(
         _worldId,
         msg._data,
-        msg._scheduledAt,
-        msg._initialDefenderGuildId);
+        msg._scheduledAt);
     if (siegeWarId == INVALID_SIEGE_WAR_ID)
     {
         return;
     }
 
-    auto const timerId = TimerManager::Singleton::GetInstance().AddRepeatTimer(
-        std::chrono::duration_cast<std::chrono::milliseconds>(SIEGE_WAR_TICK_INTERVAL),
-        static_cast<int64_t>(siegeWarId),
-        [worldId = _worldId, siegeWarId]()
+    (void)ScheduleSiegeWarWakeUp(siegeWarId);
+}
+
+void WorldActor::OnMessage(WorldMsg::SiegeScheduleTriggered const& msg)
+{
+    auto const timerIter = _siegeScheduleTimerIds.find(msg._scheduleType);
+    if (timerIter == _siegeScheduleTimerIds.end())
+    {
+        return;
+    }
+    _siegeScheduleTimerIds.erase(timerIter);
+
+    auto const* schedule = CmsManager::Singleton::GetConstInstance().FindSiegeSchedule(
+        msg._scheduleType);
+    if (not schedule)
+    {
+        return;
+    }
+
+    auto const scheduledAt = SiegeWar::Clock::now();
+    for (SiegeWarType const siegeWarType : schedule->_siegeWarTypes)
+    {
+        auto const* siegeWarData = CmsManager::Singleton::GetConstInstance().FindSiegeWar(
+            siegeWarType);
+        if (not siegeWarData)
         {
-            SiegeWarTaskRunner::PostTick(worldId, siegeWarId, SiegeWar::Clock::now());
+            continue;
+        }
+
+        OnMessage(WorldMsg::RegisterSiegeWar{
+            *siegeWarData,
+            scheduledAt,
         });
-    _siegeWarTimerIds.emplace(siegeWarId, timerId);
+    }
+
+    (void)ScheduleNextSiege(*schedule);
 }
 
 void WorldActor::OnMessage(WorldMsg::SiegeWarSnapshotUpdated const& msg)
@@ -152,17 +271,11 @@ void WorldActor::OnMessage(WorldMsg::SiegeWarSnapshotUpdated const& msg)
     if (msg._snapshot._state != ESiegeWarState::Finished &&
         msg._snapshot._state != ESiegeWarState::Canceled)
     {
+        (void)ScheduleSiegeWarWakeUp(msg._snapshot._siegeWarId);
         return;
     }
 
-    auto const timerIter = _siegeWarTimerIds.find(msg._snapshot._siegeWarId);
-    if (timerIter == _siegeWarTimerIds.end())
-    {
-        return;
-    }
-
-    TimerManager::Singleton::GetInstance().CancelTimer(timerIter->second);
-    _siegeWarTimerIds.erase(timerIter);
+    CancelSiegeWarWakeUpTimer(msg._snapshot._siegeWarId);
 
     // TODO: enqueue final siege result persistence and reward/tax settlement jobs.
 }
@@ -183,4 +296,66 @@ void WorldActor::CancelSiegeDeclarationPaymentTimer(
 
     TimerManager::Singleton::GetInstance().CancelTimer(iter->second);
     _siegeDeclarationPaymentTimerIds.erase(iter);
+}
+
+void WorldActor::CancelSiegeWarWakeUpTimer(SiegeWarId const siegeWarId)
+{
+    auto const iter = _siegeWarWakeUpTimerIds.find(siegeWarId);
+    if (iter == _siegeWarWakeUpTimerIds.end())
+    {
+        return;
+    }
+
+    TimerManager::Singleton::GetInstance().CancelTimer(iter->second);
+    _siegeWarWakeUpTimerIds.erase(iter);
+}
+
+bool WorldActor::ScheduleSiegeWarWakeUp(SiegeWarId const siegeWarId)
+{
+    auto const siegeWar = _guildManager.FindSiegeWarInternal(siegeWarId);
+    if (not siegeWar)
+    {
+        CancelSiegeWarWakeUpTimer(siegeWarId);
+        return false;
+    }
+
+    auto const wakeUpTime = siegeWar->GetNextWakeUpTime();
+    if (not wakeUpTime)
+    {
+        CancelSiegeWarWakeUpTimer(siegeWarId);
+        return false;
+    }
+
+    CancelSiegeWarWakeUpTimer(siegeWarId);
+
+    auto const timerId = TimerManager::Singleton::GetInstance().AddTimer(
+        GetWakeUpDelay(*wakeUpTime),
+        static_cast<int64_t>(siegeWarId),
+        [worldId = _worldId, siegeWarId]()
+        {
+            SiegeWarTaskRunner::PostTick(worldId, siegeWarId, SiegeWar::Clock::now());
+        });
+    _siegeWarWakeUpTimerIds.emplace(siegeWarId, timerId);
+    return true;
+}
+
+bool WorldActor::ScheduleNextSiege(SiegeScheduleData const& schedule)
+{
+    auto const delay = GetNextScheduleDelay(schedule);
+    if (not delay)
+    {
+        return false;
+    }
+
+    auto const timerId = TimerManager::Singleton::GetInstance().AddTimer(
+        *delay,
+        static_cast<int64_t>(_worldId),
+        [worldId = _worldId, scheduleType = schedule._type]()
+        {
+            SendToWorld(worldId, WorldMsg::SiegeScheduleTriggered{
+                scheduleType,
+            });
+        });
+    _siegeScheduleTimerIds.insert_or_assign(schedule._type, timerId);
+    return true;
 }

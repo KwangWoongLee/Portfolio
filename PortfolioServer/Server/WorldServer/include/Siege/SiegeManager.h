@@ -20,8 +20,8 @@ private:
         SiegeWarSnapshot _snapshot;
         std::unordered_set<GuildId> _declaredGuildIds;
         std::unordered_map<GuildId, SiegeDeclarationId> _declarationIdsByGuild;
+        std::unordered_set<GuildId> _lockedGuildIds;
         int64_t _declarationCostGold{};
-        bool _participantsFrozen{};
     };
 
     struct SiegeDeclarationEntry final
@@ -34,8 +34,7 @@ private:
     SiegeWarId RegisterSiegeWar(
         WorldId worldId,
         SiegeWarData data,
-        SiegeWar::Clock::time_point scheduledAt,
-        GuildId initialDefenderGuildId);
+        SiegeWar::Clock::time_point scheduledAt);
 
     std::optional<SiegeDeclarationPayment> TryReserveDeclaration(
         SiegeWarType siegeWarType,
@@ -51,13 +50,16 @@ private:
 
     std::shared_ptr<SiegeWar> FindSiegeWar(SiegeWarId siegeWarId) const;
     std::optional<SiegeWarSnapshot> GetSnapshot(SiegeWarId siegeWarId) const;
+    GuildId GetDefenderGuildId(SiegeWarType siegeWarType) const;
 
-    void FreezeParticipants(SiegeWarEntry& entry);
+    void LockParticipant(SiegeWarEntry& entry, GuildId guildId);
+    void UnlockParticipant(SiegeWarEntry& entry, GuildId guildId);
     void ReleaseParticipants(SiegeWarEntry& entry);
 
     WorldId const _worldId;
     std::unordered_map<SiegeWarId, SiegeWarEntry> _siegeWars;
     std::unordered_map<SiegeWarType, SiegeWarId, SiegeWarTypeHash> _currentSiegeWarIds;
+    std::unordered_map<SiegeWarType, GuildId, SiegeWarTypeHash> _defenderGuildIds;
     std::unordered_map<SiegeDeclarationId, SiegeDeclarationEntry> _declarations;
     std::unordered_map<GuildId, uint32_t> _guildParticipationLockCounts;
 };
