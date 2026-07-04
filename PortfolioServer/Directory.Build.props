@@ -4,4 +4,9 @@
     <VcpkgManifestRoot>$(MSBuildThisFileDirectory)</VcpkgManifestRoot>
     <MySqlConCppRoot Condition="'$(MySqlConCppRoot)' == ''">$(MYSQL_CONCPP_ROOT)</MySqlConCppRoot>
   </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
 </Project>

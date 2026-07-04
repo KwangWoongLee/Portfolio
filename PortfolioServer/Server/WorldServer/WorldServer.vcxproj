@@ -56,7 +56,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>mysqlcppconn.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(MySqlConCppRoot)\lib64\vs14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(MySqlConCppRoot)\lib64\vs14;$(MySqlConCppRoot)\lib64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y &quot;$(MySqlConCppRoot)\lib64\mysqlcppconn-10-vs14.dll&quot; &quot;$(OutDir)&quot;
@@ -80,7 +80,7 @@ xcopy /Y /I &quot;$(SolutionDir)Common\data\*.csv&quot; &quot;$(OutDir)data&quot
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>mysqlcppconn.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(MySqlConCppRoot)\lib64\vs14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(MySqlConCppRoot)\lib64\vs14;$(MySqlConCppRoot)\lib64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y &quot;$(MySqlConCppRoot)\lib64\mysqlcppconn-10-vs14.dll&quot; &quot;$(OutDir)&quot;
