@@ -23,6 +23,7 @@
     <ClInclude Include="include\Connector.h" />
     <ClInclude Include="include\CsvParser.h" />
     <ClInclude Include="include\CorePch.h" />
+    <ClInclude Include="include\DbCompletionTarget.h" />
     <ClInclude Include="include\DbDispatcher.h" />
     <ClInclude Include="include\DisconnectLogger.h" />
     <ClInclude Include="include\Logger.h" />
@@ -34,7 +35,6 @@
     <ClInclude Include="include\IOCPSessionManager.h" />
     <ClInclude Include="include\IOEvent.h" />
     <ClInclude Include="include\KeySerialTaskExecutor.h" />
-    <ClInclude Include="include\MemoryTransaction.h" />
     <ClInclude Include="include\Metrics.h" />
     <ClInclude Include="include\LinearBuffer.h" />
     <ClInclude Include="include\Listener.h" />
@@ -80,7 +80,6 @@
     <ClCompile Include="src\IOCPSessionManager.cpp" />
     <ClCompile Include="src\IOEvent.cpp" />
     <ClCompile Include="src\KeySerialTaskExecutor.cpp" />
-    <ClCompile Include="src\MemoryTransaction.cpp" />
     <ClCompile Include="src\LinearBuffer.cpp" />
     <ClCompile Include="src\Listener.cpp" />
     <ClCompile Include="src\ServerEngine.cpp" />

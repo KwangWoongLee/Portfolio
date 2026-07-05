@@ -1,5 +1,6 @@
 #pragma once
 #include "CorePch.h"
+#include "DbCompletionTarget.h"
 #include "Player.h"
 #include "WorldTypes.h"
 
@@ -14,6 +15,7 @@ public:
 
     bool CreateCharacterAsync(
         WorldId worldId,
+        DbCompletionTarget completionTarget,
         CharacterLoadCompleted completed);
     ActorId CreateLoaded(
         std::shared_ptr<IOCPSession> const& session,

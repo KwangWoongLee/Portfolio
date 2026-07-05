@@ -1,7 +1,6 @@
 #include "CorePch.h"
 #include "Player.h"
 #include "PlayerPost.h"
-#include "MemoryTransaction.h"
 #include "DbDispatcher.h"
 #include "TimerManager.h"
 #include "WorldMessages.h"
@@ -14,70 +13,46 @@ namespace
 {
     auto constexpr DEFAULT_ATTACK_DAMAGE = 25;
     auto constexpr RESPAWN_DELAY = std::chrono::seconds(5);
+
+
+bool EnqueueGoldUpdate(
+    std::shared_ptr<ICharacterRepository> const& characterRepository,
+    CharacterId const characterId,
+    int64_t const gold)
+{
+    if (not characterRepository)
+    {
+        return false;
+    }
+
+    return DbDispatcher::Singleton::GetInstance().Enqueue(
+        static_cast<int64_t>(characterId),
+        std::make_unique<LambdaDbCommand>(
+            [characterRepository, characterId, gold]()
+            {
+                auto const result = characterRepository->UpdateGold(characterId, gold);
+                if (result.Succeeded())
+                {
+                    return EDbCommandResult::Succeeded;
+                }
+
+                std::cerr << "[CharacterRepository] UpdateGold failed (character="
+                    << characterId << "): " << result._message << std::endl;
+                return EDbCommandResult::Failed;
+            },
+            [characterId](EDbCommandResult const result)
+            {
+                if (result == EDbCommandResult::Succeeded)
+                {
+                    return;
+                }
+
+                (void)characterId;
+                // TODO: record DB error tracking and disconnect/reload the owner session.
+            }));
 }
 
-class Player::GoldUndoLog final : public IUndoLog
-{
-public:
-    GoldUndoLog(Player& player, int64_t const delta)
-        : _player(player)
-        , _delta(delta)
-        , _previousGold(player._gold)
-    {
-    }
-
-    void Apply() override
-    {
-        _player._gold += _delta;
-    }
-
-    void Rollback() override
-    {
-        _player._gold = _previousGold;
-    }
-
-    bool Persist() override
-    {
-        auto const characterId = _player._characterId;
-        auto const characterRepository = _player._characterRepository;
-        auto const gold = _player._gold;
-        if (not characterRepository)
-        {
-            return false;
-        }
-
-        return DbDispatcher::Singleton::GetInstance().Enqueue(
-            static_cast<int64_t>(characterId),
-            std::make_unique<LambdaDbCommand>(
-                [characterRepository, characterId, gold]()
-                {
-                    auto const result = characterRepository->UpdateGold(characterId, gold);
-                    if (result.Succeeded())
-                    {
-                        return EDbCommandResult::Succeeded;
-                    }
-
-                    std::cerr << "[CharacterRepository] UpdateGold failed (character="
-                        << characterId << "): " << result._message << std::endl;
-                    return EDbCommandResult::Failed;
-                },
-                [characterId](EDbCommandResult const result)
-                {
-                    if (result == EDbCommandResult::Succeeded)
-                    {
-                        return;
-                    }
-
-                    (void)characterId;
-                    // TODO: record DB error tracking and disconnect/reload the owner session.
-                }));
-    }
-
-private:
-    Player& _player;
-    int64_t const _delta;
-    int64_t const _previousGold;
-};
+}
 
 void Player::OnPacket(uint16_t const packetId, std::vector<uint8_t> const& payload)
 {
@@ -200,9 +175,8 @@ void Player::OnMessage(PlayerMsg::SiegeDeclarationPaymentRequested const& msg)
         return;
     }
 
-    MemoryTransaction transaction(static_cast<int64_t>(_characterId));
-    transaction.Add<GoldUndoLog>(*this, -msg._costGold);
-    if (not transaction.Commit())
+    auto const desiredGold = _gold - msg._costGold;
+    if (not EnqueueGoldUpdate(_characterRepository, _characterId, desiredGold))
     {
         SendToWorld(msg._worldId, WorldMsg::SiegeDeclarationPaymentCompleted{
             GetActorId(),
@@ -213,6 +187,7 @@ void Player::OnMessage(PlayerMsg::SiegeDeclarationPaymentRequested const& msg)
         return;
     }
 
+    _gold = desiredGold;
     _paidSiegeDeclarationIds.insert(msg._declarationId);
 
     SendToWorld(msg._worldId, WorldMsg::SiegeDeclarationPaymentCompleted{
@@ -230,12 +205,17 @@ void Player::OnMessage(PlayerMsg::SiegeDeclarationRefundRequested const& msg)
         return;
     }
 
-    MemoryTransaction transaction(static_cast<int64_t>(_characterId));
-    transaction.Add<GoldUndoLog>(*this, msg._costGold);
-    if (not transaction.Commit())
+    if (msg._costGold < 0)
     {
         return;
     }
 
+    auto const desiredGold = _gold + msg._costGold;
+    if (not EnqueueGoldUpdate(_characterRepository, _characterId, desiredGold))
+    {
+        return;
+    }
+
+    _gold = desiredGold;
     _paidSiegeDeclarationIds.erase(msg._declarationId);
 }

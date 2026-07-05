@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClInclude Include="include\CorePch.h" />
@@ -50,6 +50,9 @@
     <ClInclude Include="include\DbDispatcher.h">
       <Filter>Infra</Filter>
     </ClInclude>
+    <ClInclude Include="include\DbCompletionTarget.h">
+      <Filter>Infra</Filter>
+    </ClInclude>
     <ClInclude Include="include\Listener.h">
       <Filter>Network</Filter>
     </ClInclude>
@@ -82,9 +85,6 @@
     </ClInclude>
     <ClInclude Include="include\IOCPObject.h">
       <Filter>Network</Filter>
-    </ClInclude>
-    <ClInclude Include="include\MemoryTransaction.h">
-      <Filter>Infra</Filter>
     </ClInclude>
     <ClInclude Include="include\CsvParser.h">
       <Filter>Util</Filter>
@@ -150,9 +150,6 @@
     </ClCompile>
     <ClCompile Include="src\IOCP.cpp">
       <Filter>Network</Filter>
-    </ClCompile>
-    <ClCompile Include="src\MemoryTransaction.cpp">
-      <Filter>Infra</Filter>
     </ClCompile>
     <ClCompile Include="src\Stream.cpp">
       <Filter>Network</Filter>

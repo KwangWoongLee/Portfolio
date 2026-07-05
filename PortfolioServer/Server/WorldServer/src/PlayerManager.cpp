@@ -1,7 +1,9 @@
 #include "CorePch.h"
 #include <random>
 #include "DbDispatcher.h"
+#include "DbCompletionTarget.h"
 #include "PlayerManager.h"
+#include "TaskDispatcher.h"
 #include "UniqueIdGenerator.h"
 
 namespace
@@ -14,6 +16,33 @@ namespace
         return std::format("Player{}", static_cast<int64_t>(characterId));
     }
 
+    class CharacterLoadCompletedTask final
+        : public ITask
+    {
+    public:
+        CharacterLoadCompletedTask(
+            SessionId const sessionId,
+            PlayerManager::CharacterLoadCompleted completed,
+            CharacterLoadResult result)
+            : ITask(ETaskType::NetworkIO, static_cast<int64_t>(sessionId))
+            , _completed(std::move(completed))
+            , _result(std::move(result))
+        {
+        }
+
+        void Execute() override
+        {
+            if (_completed)
+            {
+                _completed(std::move(_result));
+            }
+        }
+
+    private:
+        PlayerManager::CharacterLoadCompleted _completed;
+        CharacterLoadResult _result;
+    };
+
     class LoadOrCreateCharacterCommand final
         : public IDbCommand
     {
@@ -22,10 +51,12 @@ namespace
             std::shared_ptr<ICharacterRepository> characterRepository,
             CharacterId const characterId,
             std::string characterName,
+            DbCompletionTarget completionTarget,
             PlayerManager::CharacterLoadCompleted completed)
             : _characterRepository(std::move(characterRepository))
             , _characterId(characterId)
             , _characterName(std::move(characterName))
+            , _completionTarget(completionTarget)
             , _completed(std::move(completed))
         {
         }
@@ -51,16 +82,23 @@ namespace
         void OnCompleted(EDbCommandResult const result) override
         {
             (void)result;
-            if (_completed)
+            if (EDbCompletionTargetType::NetworkSession != _completionTarget._type)
             {
-                _completed(std::move(_result));
+                return;
             }
+
+            auto task = std::make_shared<CharacterLoadCompletedTask>(
+                SessionId{ _completionTarget._id },
+                std::move(_completed),
+                std::move(_result));
+            (void)TaskDispatcher::Singleton::GetInstance().Dispatch(std::move(task));
         }
 
     private:
         std::shared_ptr<ICharacterRepository> _characterRepository;
         CharacterId _characterId{ INVALID_CHARACTER_ID };
         std::string _characterName;
+        DbCompletionTarget _completionTarget;
         PlayerManager::CharacterLoadCompleted _completed;
         CharacterLoadResult _result{
             ECharacterRepositoryError::QueryFailed,
@@ -90,6 +128,7 @@ void PlayerManager::Shutdown()
 
 bool PlayerManager::CreateCharacterAsync(
     WorldId const worldId,
+    DbCompletionTarget const completionTarget,
     CharacterLoadCompleted completed)
 {
     std::shared_ptr<ICharacterRepository> characterRepository;
@@ -98,7 +137,10 @@ bool PlayerManager::CreateCharacterAsync(
         characterRepository = _characterRepository;
     }
 
-    if (not characterRepository || INVALID_WORLD_ID == worldId || not completed)
+    if (not characterRepository ||
+        INVALID_WORLD_ID == worldId ||
+        not completionTarget.IsValid() ||
+        not completed)
     {
         return false;
     }
@@ -120,6 +162,7 @@ bool PlayerManager::CreateCharacterAsync(
             std::move(characterRepository),
             characterId,
             std::move(characterName),
+            completionTarget,
             std::move(completed)));
 }
 

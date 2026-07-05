@@ -51,8 +51,6 @@ private:
 
     static int32_t constexpr MAX_HP = 5000;
 
-    class GoldUndoLog;
-
     CharacterId const _characterId;
     std::weak_ptr<IOCPSession> const _session;
     SessionId const _sessionId;

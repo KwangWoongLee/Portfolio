@@ -1,5 +1,6 @@
 #include "CorePch.h"
 #include "ClientSession.h"
+#include "DbCompletionTarget.h"
 #include "PlayerManager.h"
 #include "PlayerPost.h"
 #include "WorldTypes.h"
@@ -52,6 +53,7 @@ void ClientSession::OnConnected()
     auto const self = std::static_pointer_cast<ClientSession>(shared_from_this());
     auto const enqueued = PlayerManager::Singleton::GetInstance().CreateCharacterAsync(
         DEFAULT_WORLD_ID,
+        DbCompletionTarget::NetworkSession(GetSessionId()),
         [weakSelf = std::weak_ptr<ClientSession>{ self }](CharacterLoadResult result)
         {
             auto self = weakSelf.lock();
