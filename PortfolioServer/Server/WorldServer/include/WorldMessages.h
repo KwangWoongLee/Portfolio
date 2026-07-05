@@ -63,4 +63,15 @@ namespace WorldMsg
     {
         SiegeWarSnapshot _snapshot;
     };
+
+    struct StartSiegeDemo final
+    {
+        SiegeWarData _data;
+        ActorId _redLeaderActorId{ ActorId{ 900001 } };
+        ActorId _blueLeaderActorId{ ActorId{ 900002 } };
+        std::string _redGuildName{ "DemoRed" };
+        std::string _blueGuildName{ "DemoBlue" };
+        std::chrono::milliseconds _redOccupationDelay{ std::chrono::seconds(4) };
+        std::chrono::milliseconds _blueOccupationDelay{ std::chrono::seconds(6) };
+    };
 }

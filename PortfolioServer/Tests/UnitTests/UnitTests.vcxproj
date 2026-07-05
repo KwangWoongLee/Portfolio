@@ -76,8 +76,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="MemoryTransactionTests.cpp" />
+    <ClCompile Include="SiegeRewardPlannerTests.cpp" />
     <ClCompile Include="SiegeWarTests.cpp" />
     <ClCompile Include="StateMachineTests.cpp" />
+    <ClCompile Include="..\..\Server\WorldServer\src\Reward\SiegeRewardPlanner.cpp" />
     <ClCompile Include="..\..\Server\WorldServer\src\Siege\SiegeWar.cpp" />
   </ItemGroup>
   <ItemGroup>

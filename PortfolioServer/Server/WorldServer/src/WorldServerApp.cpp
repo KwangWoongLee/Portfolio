@@ -11,9 +11,12 @@
 #include "TimerManager.h"
 #include "ZoneManager.h"
 #include "PlayerManager.h"
+#include "WorldMessages.h"
+#include "WorldPost.h"
 #include "DbConfig.h"
 #include "MySqlCharacterRepository.h"
 #include "MySqlConnectionPool.h"
+#include <cstdlib>
 #include <filesystem>
 #include <iomanip>
 
@@ -54,6 +57,24 @@ namespace
             << std::put_time(&localTime, "%Y%m%d")
             << ".log";
         return pathStream.str();
+    }
+
+    std::optional<std::string> ReadEnvironment(char const* const name)
+    {
+        char* value{ nullptr };
+        size_t length{ 0 };
+        if (0 != ::_dupenv_s(&value, &length, name) || nullptr == value)
+        {
+            return std::nullopt;
+        }
+
+        auto holder = std::unique_ptr<char, decltype(&std::free)>{ value, &std::free };
+        return std::string(value);
+    }
+
+    bool ReadEnabled(std::optional<std::string> const& value)
+    {
+        return value && (*value == "1" || *value == "true" || *value == "TRUE");
     }
 }
 
@@ -158,6 +179,8 @@ bool WorldServerApp::Init()
             ObserverManager::Singleton::GetInstance().PushSnapshot();
         });
 
+    StartSiegeDemoIfEnabled();
+
     return true;
 }
 
@@ -178,6 +201,34 @@ void WorldServerApp::Stop()
     {
         _dbConnectionPool->Shutdown();
     }
+}
+
+void WorldServerApp::StartSiegeDemoIfEnabled()
+{
+    if (not ReadEnabled(ReadEnvironment("PORTFOLIO_SIEGE_DEMO")))
+    {
+        return;
+    }
+
+    WorldMsg::StartSiegeDemo msg;
+    msg._data = SiegeWarData{
+        SiegeWarType{ 9001 },
+        "PortfolioDemoSiege",
+        2,
+        10,
+        3,
+        0,
+    };
+
+    TimerManager::Singleton::GetInstance().AddTimer(
+        std::chrono::milliseconds(1),
+        static_cast<int64_t>(DEFAULT_WORLD_ID),
+        [msg = std::move(msg)]() mutable
+        {
+            SendToWorld(DEFAULT_WORLD_ID, std::move(msg));
+        });
+
+    std::cout << "[WorldServer] Portfolio siege demo scheduled" << std::endl;
 }
 
 void WorldServerApp::InitZones()

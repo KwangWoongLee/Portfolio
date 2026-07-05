@@ -13,28 +13,88 @@ namespace
 
     auto constexpr MAP_HALF_EXTENT = 1000.0f;
     auto constexpr MOVE_STEP = 5.0f;
-
-    auto constexpr ATTACK_TARGET_RANGE = 2000;
 }
 
 void TestClientSession::HandlePacket(uint16_t const packetId, void const* const payload, uint32_t const size)
 {
-    if (EPacketId::W2CWelcome == static_cast<EPacketId>(packetId))
+    switch (static_cast<EPacketId>(packetId))
     {
-        W2CWelcome pkt;
-        if (pkt.ReadFromBytes(payload, size))
+    case EPacketId::W2CWelcome:
         {
+            W2CWelcome pkt;
+            if (not pkt.ReadFromBytes(payload, size))
+            {
+                return;
+            }
+
+            std::scoped_lock lock(_stateMutex);
+            _selfActorId = pkt._actorId;
             _x = pkt._x;
             _z = pkt._z;
-        }
+            _visibleActorIds.clear();
+            for (auto const& actor : pkt._nearby)
+            {
+                if (actor._actorId != _selfActorId)
+                {
+                    _visibleActorIds.insert(actor._actorId);
+                }
+            }
+        } break;
+    case EPacketId::W2CActorEnter:
+        {
+            W2CActorEnter pkt;
+            if (pkt.ReadFromBytes(payload, size))
+            {
+                TrackVisibleActor(pkt._actorId);
+            }
+        } break;
+    case EPacketId::W2CActorLeave:
+        {
+            W2CActorLeave pkt;
+            if (pkt.ReadFromBytes(payload, size))
+            {
+                UntrackVisibleActor(pkt._actorId);
+            }
+        } break;
+    case EPacketId::W2CMoveBroadcast:
+        {
+            W2CMoveBroadcast pkt;
+            if (pkt.ReadFromBytes(payload, size))
+            {
+                TrackVisibleActor(pkt._actorId);
+            }
+        } break;
+    case EPacketId::W2CHpUpdate:
+        {
+            W2CHpUpdate pkt;
+            if (pkt.ReadFromBytes(payload, size))
+            {
+                TrackVisibleActor(pkt._actorId);
+            }
+        } break;
+    case EPacketId::W2CDeath:
+        {
+            W2CDeath pkt;
+            if (pkt.ReadFromBytes(payload, size))
+            {
+                TrackVisibleActor(pkt._actorId);
+            }
+        } break;
+    default:
+        break;
     }
 }
 
 void TestClientSession::OnConnected()
 {
     _rng.seed(static_cast<uint32_t>(static_cast<int64_t>(GetSessionId())));
-    _x = 0.0f;
-    _z = 0.0f;
+    {
+        std::scoped_lock lock(_stateMutex);
+        _selfActorId = INVALID_ACTOR_ID;
+        _visibleActorIds.clear();
+        _x = 0.0f;
+        _z = 0.0f;
+    }
 
     auto const sessionId = GetSessionId();
 
@@ -77,23 +137,37 @@ void TestClientSession::OnDisconnected()
         TimerManager::Singleton::GetInstance().CancelTimer(_attackTimerId);
         _attackTimerId = 0;
     }
+
+    std::scoped_lock lock(_stateMutex);
+    _selfActorId = INVALID_ACTOR_ID;
+    _visibleActorIds.clear();
 }
 
 void TestClientSession::TickMove()
 {
     std::uniform_real_distribution<float> deltaDist(-MOVE_STEP, MOVE_STEP);
 
-    _x += deltaDist(_rng);
-    _z += deltaDist(_rng);
+    float x{ 0.0f };
+    float z{ 0.0f };
 
-    if (MAP_HALF_EXTENT < _x) { _x = MAP_HALF_EXTENT; }
-    if (_x < -MAP_HALF_EXTENT) { _x = -MAP_HALF_EXTENT; }
-    if (MAP_HALF_EXTENT < _z) { _z = MAP_HALF_EXTENT; }
-    if (_z < -MAP_HALF_EXTENT) { _z = -MAP_HALF_EXTENT; }
+    {
+        std::scoped_lock lock(_stateMutex);
+
+        _x += deltaDist(_rng);
+        _z += deltaDist(_rng);
+
+        if (MAP_HALF_EXTENT < _x) { _x = MAP_HALF_EXTENT; }
+        if (_x < -MAP_HALF_EXTENT) { _x = -MAP_HALF_EXTENT; }
+        if (MAP_HALF_EXTENT < _z) { _z = MAP_HALF_EXTENT; }
+        if (_z < -MAP_HALF_EXTENT) { _z = -MAP_HALF_EXTENT; }
+
+        x = _x;
+        z = _z;
+    }
 
     C2WMove pkt;
-    pkt._x = _x;
-    pkt._z = _z;
+    pkt._x = x;
+    pkt._z = z;
 
     SendPacket(pkt);
     FlushPacketStream();
@@ -101,11 +175,41 @@ void TestClientSession::TickMove()
 
 void TestClientSession::TickAttack()
 {
-    std::uniform_int_distribution<int64_t> targetDist(1, ATTACK_TARGET_RANGE);
+    ActorId targetActorId{ INVALID_ACTOR_ID };
+
+    {
+        std::scoped_lock lock(_stateMutex);
+        if (_visibleActorIds.empty())
+        {
+            return;
+        }
+
+        std::uniform_int_distribution<size_t> targetDist(0, _visibleActorIds.size() - 1);
+        auto iter = _visibleActorIds.begin();
+        std::advance(iter, targetDist(_rng));
+        targetActorId = *iter;
+    }
 
     C2WAttack pkt;
-    pkt._targetActorId = ActorId{ targetDist(_rng) };
+    pkt._targetActorId = targetActorId;
 
     SendPacket(pkt);
     FlushPacketStream();
+}
+
+void TestClientSession::TrackVisibleActor(ActorId const actorId)
+{
+    std::scoped_lock lock(_stateMutex);
+    if (actorId == INVALID_ACTOR_ID || actorId == _selfActorId)
+    {
+        return;
+    }
+
+    _visibleActorIds.insert(actorId);
+}
+
+void TestClientSession::UntrackVisibleActor(ActorId const actorId)
+{
+    std::scoped_lock lock(_stateMutex);
+    _visibleActorIds.erase(actorId);
 }

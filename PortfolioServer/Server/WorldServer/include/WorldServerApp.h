@@ -18,6 +18,7 @@ public:
 
 private:
     void InitZones();
+    void StartSiegeDemoIfEnabled();
 
     std::shared_ptr<IOCP> _iocp;
     std::unique_ptr<ServerEngine> _engine;

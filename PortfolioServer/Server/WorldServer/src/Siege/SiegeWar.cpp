@@ -332,8 +332,8 @@ void SiegeWar::EnterFinished(TickContext& context)
     war._finishedAt = context._now;
     war._progressStep = ESiegeWarProgressStep::None;
 
-    // TODO: create reward job, tax payout ledger, and reward_claim rows.
-    // SiegeWar stays Finished; retry/recovery belongs to reward job state.
+    // Reward jobs are created after the Finished snapshot is applied by WorldActor.
+    // SiegeWar stays focused on event state; retry/recovery belongs to reward state.
 }
 
 void SiegeWar::EnterCanceled(TickContext& context)

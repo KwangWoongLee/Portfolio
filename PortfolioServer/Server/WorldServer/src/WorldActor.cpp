@@ -82,6 +82,7 @@ namespace
 WorldActor::WorldActor(WorldId const worldId)
     : _worldId(worldId)
     , _guildManager(worldId)
+    , _siegeRewardPlanner(worldId)
 {
     for (auto const* schedule : CmsManager::Singleton::GetConstInstance().GetAllSiegeSchedules())
     {
@@ -268,6 +269,17 @@ void WorldActor::OnMessage(WorldMsg::SiegeWarSnapshotUpdated const& msg)
         return;
     }
 
+    auto const& snapshot = msg._snapshot;
+    std::cout << "[SiegeWarSnapshot] id=" << snapshot._siegeWarId
+        << " type=" << snapshot._siegeWarType
+        << " rev=" << snapshot._revision
+        << " state=" << ToString(snapshot._state)
+        << " step=" << ToString(snapshot._progressStep)
+        << " defender=" << snapshot._defenderGuildId
+        << " winner=" << snapshot._winnerGuildId
+        << " reason=" << ToString(snapshot._endReason)
+        << std::endl;
+
     if (msg._snapshot._state != ESiegeWarState::Finished &&
         msg._snapshot._state != ESiegeWarState::Canceled)
     {
@@ -276,8 +288,86 @@ void WorldActor::OnMessage(WorldMsg::SiegeWarSnapshotUpdated const& msg)
     }
 
     CancelSiegeWarWakeUpTimer(msg._snapshot._siegeWarId);
+    CreateSiegeRewardJob(msg._snapshot);
+}
 
-    // TODO: enqueue final siege result persistence and reward/tax settlement jobs.
+void WorldActor::OnMessage(WorldMsg::StartSiegeDemo const& msg)
+{
+    auto redGuildResult = _guildManager.CreateGuild(
+        msg._redLeaderActorId,
+        msg._redGuildName);
+    if (not redGuildResult.Succeeded())
+    {
+        if (auto snapshot = _guildManager.GetGuildSnapshotByMember(msg._redLeaderActorId))
+        {
+            redGuildResult._guildId = snapshot->_guildId;
+        }
+    }
+
+    auto blueGuildResult = _guildManager.CreateGuild(
+        msg._blueLeaderActorId,
+        msg._blueGuildName);
+    if (not blueGuildResult.Succeeded())
+    {
+        if (auto snapshot = _guildManager.GetGuildSnapshotByMember(msg._blueLeaderActorId))
+        {
+            blueGuildResult._guildId = snapshot->_guildId;
+        }
+    }
+
+    auto const redGuildId = redGuildResult._guildId;
+    auto const blueGuildId = blueGuildResult._guildId;
+
+    if (redGuildId == INVALID_GUILD_ID || blueGuildId == INVALID_GUILD_ID)
+    {
+        std::cout << "[SiegeDemo] Failed to prepare demo guilds" << std::endl;
+        return;
+    }
+
+    auto const siegeWarId = _guildManager.RegisterSiegeWar(
+        _worldId,
+        msg._data,
+        SiegeWar::Clock::now());
+    if (siegeWarId == INVALID_SIEGE_WAR_ID)
+    {
+        std::cout << "[SiegeDemo] Failed to register demo siege type="
+            << msg._data._type << std::endl;
+        return;
+    }
+
+    std::cout << "[SiegeDemo] Started demo siege id=" << siegeWarId
+        << " type=" << msg._data._type
+        << " redGuild=" << redGuildId
+        << " blueGuild=" << blueGuildId
+        << std::endl;
+
+    (void)ScheduleSiegeWarWakeUp(siegeWarId);
+
+    TimerManager::Singleton::GetInstance().AddTimer(
+        msg._redOccupationDelay,
+        static_cast<int64_t>(siegeWarId),
+        [worldId = _worldId, siegeWarId, redGuildId]()
+        {
+            std::cout << "[SiegeDemo] Red guild occupies siege point" << std::endl;
+            SiegeWarTaskRunner::PostOccupied(
+                worldId,
+                siegeWarId,
+                redGuildId,
+                SiegeWar::Clock::now());
+        });
+
+    TimerManager::Singleton::GetInstance().AddTimer(
+        msg._blueOccupationDelay,
+        static_cast<int64_t>(siegeWarId),
+        [worldId = _worldId, siegeWarId, blueGuildId]()
+        {
+            std::cout << "[SiegeDemo] Blue guild occupies siege point" << std::endl;
+            SiegeWarTaskRunner::PostOccupied(
+                worldId,
+                siegeWarId,
+                blueGuildId,
+                SiegeWar::Clock::now());
+        });
 }
 
 std::shared_ptr<SiegeWar> WorldActor::FindSiegeWarInternal(SiegeWarId const siegeWarId) const
@@ -308,6 +398,43 @@ void WorldActor::CancelSiegeWarWakeUpTimer(SiegeWarId const siegeWarId)
 
     TimerManager::Singleton::GetInstance().CancelTimer(iter->second);
     _siegeWarWakeUpTimerIds.erase(iter);
+}
+
+void WorldActor::CreateSiegeRewardJob(SiegeWarSnapshot const& snapshot)
+{
+    std::optional<GuildSnapshot> winnerGuildSnapshot;
+    if (snapshot._winnerGuildId != INVALID_GUILD_ID)
+    {
+        winnerGuildSnapshot = _guildManager.GetGuildSnapshot(snapshot._winnerGuildId);
+    }
+
+    auto job = _siegeRewardPlanner.CreateFinishedSiegeJob(
+        snapshot,
+        winnerGuildSnapshot);
+    if (not job)
+    {
+        return;
+    }
+
+    std::cout << "[SiegeRewardJob] siegeWarId=" << job->_siegeWarId
+        << " world=" << job->_worldId
+        << " winnerGuild=" << job->_winnerGuildId
+        << " endReason=" << ToString(job->_endReason)
+        << " state=" << ToString(job->_state)
+        << " claims=" << job->_claims.size()
+        << std::endl;
+
+    for (RewardClaim const& claim : job->_claims)
+    {
+        std::cout << "[RewardClaim] claimId=" << claim._claimId
+            << " eventId=" << claim._eventId
+            << " actor=" << claim._actorId
+            << " guild=" << claim._guildId
+            << " type=" << ToString(claim._rewardType)
+            << " state=" << ToString(claim._state)
+            << " gold=" << claim._goldAmount
+            << std::endl;
+    }
 }
 
 bool WorldActor::ScheduleSiegeWarWakeUp(SiegeWarId const siegeWarId)

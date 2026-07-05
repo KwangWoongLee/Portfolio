@@ -1,5 +1,6 @@
 #pragma once
 #include "Guild/GuildManager.h"
+#include "Reward/SiegeRewardPlanner.h"
 #include "WorldMessages.h"
 
 class SiegeWarTaskRunner;
@@ -36,15 +37,18 @@ private:
     void OnMessage(WorldMsg::RegisterSiegeWar const& msg);
     void OnMessage(WorldMsg::SiegeScheduleTriggered const& msg);
     void OnMessage(WorldMsg::SiegeWarSnapshotUpdated const& msg);
+    void OnMessage(WorldMsg::StartSiegeDemo const& msg);
 
     std::shared_ptr<SiegeWar> FindSiegeWarInternal(SiegeWarId siegeWarId) const;
     void CancelSiegeDeclarationPaymentTimer(SiegeDeclarationId declarationId);
     void CancelSiegeWarWakeUpTimer(SiegeWarId siegeWarId);
+    void CreateSiegeRewardJob(SiegeWarSnapshot const& snapshot);
     bool ScheduleSiegeWarWakeUp(SiegeWarId siegeWarId);
     bool ScheduleNextSiege(SiegeScheduleData const& schedule);
 
     WorldId const _worldId;
     GuildManager _guildManager;
+    SiegeRewardPlanner _siegeRewardPlanner;
     std::unordered_map<SiegeScheduleType, TimerId, SiegeScheduleTypeHash> _siegeScheduleTimerIds;
     std::unordered_map<SiegeWarId, TimerId> _siegeWarWakeUpTimerIds;
     std::unordered_map<SiegeDeclarationId, TimerId> _siegeDeclarationPaymentTimerIds;

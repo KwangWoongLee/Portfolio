@@ -1,6 +1,8 @@
 #pragma once
 #include "CorePch.h"
 #include <random>
+#include <unordered_set>
+#include "Actor.h"
 #include "IOCPSession.h"
 #include "Packet.h"
 
@@ -17,7 +19,13 @@ private:
     void TickMove();
     void TickAttack();
 
+    void TrackVisibleActor(ActorId actorId);
+    void UntrackVisibleActor(ActorId actorId);
+
+    mutable std::mutex _stateMutex;
     std::mt19937 _rng;
+    ActorId _selfActorId{ INVALID_ACTOR_ID };
+    std::unordered_set<ActorId> _visibleActorIds;
     float _x{};
     float _z{};
     TimerId _moveTimerId{};
