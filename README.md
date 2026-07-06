@@ -1,262 +1,145 @@
 # C++ MMORPG Live Server Portfolio
 
-대형 온라인 RPG 서버 직무에서 요구하는 C++ 비동기 네트워크, 라이브 콘텐츠, DB 정합성, 운영 대응 역량을 보여주기 위한 포트폴리오입니다.
+대형 온라인 RPG 서버 직무에서 요구하는 C++ 비동기 네트워크, actor 기반 상태 소유권, 라이브 콘텐츠 lifecycle, MySQL 정합성, 운영 지표 분석 역량을 보여주기 위한 포트폴리오입니다.
 
-핵심 목표는 단순 샘플 서버가 아니라, **라이브 MMORPG 서버에서 자주 마주치는 네트워크, 비동기 처리, 월드/존 동시성, 콘텐츠 상태 관리, 운영 지표 분석**을 코드와 문서로 설명할 수 있게 만드는 것입니다.
+목표는 완성된 게임 클라이언트가 아니라, 라이브 MMORPG 서버에서 자주 마주치는 네트워크 backpressure, 월드/존 동시성, 장시간 이벤트 상태 전이, DB 경계, 보상 중복 방지 설계를 코드와 문서로 설명할 수 있게 만드는 것입니다.
 
-현재 구현은 IOCP 기반 네트워크 코어, Player/Zone/World actor 실행 모델, 길드와 공성전 lifecycle, 공통 상태 머신 유틸, 부하 테스트 및 메트릭 분석에 집중되어 있습니다. 이후 보상/상품 흐름, MySQL 스키마와 라이브 이슈 대응 문서를 확장할 예정입니다.
+## 현재 구현 요약
 
----
+- Windows IOCP 기반 비동기 TCP 서버
+- `GameLogic`, `NetworkIO`, `DB`, `Timer` executor 분리
+- `Player`, `Zone`, `World`, `SiegeWar` 단위 key-serial actor 실행
+- Zone 내부 공유 상태를 worker 단일 소유로 제한해 race condition 완화
+- Observer snapshot, metrics CSV, disconnect reason, pending send bytes 측정
+- MySQL Connector/C++ 기반 캐릭터 생성 및 골드 저장 경계
+- `DbCompletionTarget` 기반 DB 완료 라우팅과 reward claim idempotency
+- 길드 생성, 가입, 탈퇴, 길드장 이전
+- 공성전 스케줄, 상태 머신, 예약 wake-up, 점령 grace, 선포 비용 결제/환불
+- 공성전 종료 후 `SiegeRewardPlanner` 기반 reward job/claim 생성 로그
+- 공성 보상 claim 생성 영속화를 위한 `siege_reward_claim` repository 및 SQL schema
+- GoogleTest 단위 테스트: `StateMachine`, `SiegeWar`, `SiegeRewardPlanner`
 
-## 라이브 MMORPG 서버 역량 매핑
-
-라이브 MMORPG 서버 직무에서 자주 요구되는 항목을 아래 구현 범위와 연결합니다.
+## 라이브 서버 역량 매핑
 
 | 핵심 역량 | 현재 포트폴리오 대응 |
 |---|---|
 | C/C++, 자료구조, 알고리즘 | IOCP 서버 코어, LinearBuffer, Stream, ObjectPool, Grid 기반 시야 처리 |
 | 비동기/네트워크/소켓 프로그래밍 | IOCP, AcceptEx/WSARecv/WSASend, completion worker pool, session lifecycle |
-| 라이브 서비스 콘텐츠 개발 | World/Zone, Player, 길드 가입·탈퇴·위임, 공성전 선포와 진행 상태 머신 |
-| MySQL/SQL 이해 | 2~3주차에 MySQL schema와 보상/공성전 저장 흐름 추가 예정 |
-| 디버깅과 이슈 추적 | race condition, SendOverflow, backpressure 측정 narrative 문서화 |
-| 최적화/리팩토링 | Zone actor화, single zone bottleneck 분석, tick batching 설계 |
-| 운영툴/각종 툴 개발 | Observer channel, metrics logger, Raylib Viewer(optional), Grafana CSV 연동 |
+| 동시성 설계 | key-serial executor, actor-owned state, manager registry lock 경계 |
+| 라이브 콘텐츠 개발 | 길드 lifecycle, 공성전 선포/진행/종료, 상태 머신과 timer wake-up |
+| MySQL/SQL 이해 | character/gold repository, SP, 공성 reward claim repository/schema |
+| 장애/중복 방어 | DB transaction/idempotency 경계, reward claim unique key 설계, 재처리 문서 |
+| 디버깅/병목 분석 | Zone race condition, SendOverflow, TCP backpressure, 단일 zone 병목 측정 |
+| 운영 관찰성 | Observer channel, metrics logger, CSV/Grafana 연동 준비 |
 
----
+## 구현 범위
 
-## 현재 구현 범위
-
-### 1. IOCP 네트워크 코어
+### IOCP 네트워크 코어
 
 - IOCP 기반 비동기 I/O
 - Listener / Connector / IOCPSession 구조
 - Accept, Connect, Recv, Send, Disconnect completion 처리
-- IOCP completion worker pool
 - Packet receive task와 game logic task 분리
 - send/recv buffer overflow 감지 및 disconnect reason 기록
 
-관련 코드:
+대표 코드:
 
 - `PortfolioServer/Core/include/IOCP.h`
-- `PortfolioServer/Core/src/IOCP.cpp`
-- `PortfolioServer/Core/include/IOCPSession.h`
 - `PortfolioServer/Core/src/IOCPSession.cpp`
 - `PortfolioServer/Core/include/LinearBuffer.h`
 - `PortfolioServer/Core/include/Stream.h`
 
-### 2. TaskDispatcher와 Actor 실행 모델
+### Actor 실행 모델
 
-- 작업 성격별 executor 구성: `GameLogic`, `NetworkIO`, `DB`, `Timer`
-- `DbDispatcher`가 DB command를 DB executor로 넘기고, 완료 콜백은 actor post 또는 error tracking만 수행
-- `KeySerialTaskExecutor`로 같은 key의 작업을 같은 worker에서 직렬 처리
-- Player, Zone, World와 진행 중인 SiegeWar를 key 기반 메시지 처리 흐름으로 분리
-- Manager는 registry/lifecycle을 lock으로 관리하고, 내부 객체 변경은 `ManagedActorTaskAccess` 기반 Runner로만 실행
-- 공유 상태 접근을 특정 worker로 모아 race condition을 줄이는 구조
+이 프로젝트의 Actor 모델은 라이브 서비스에서 겪은 Player 내부 모델 동시 접근, race condition, lock order/deadlock 문제를 설계 배경으로 삼았습니다. 현재 구현에서는 NetworkIO, Timer, DB 완료 경로가 Player 상태를 직접 수정하지 않고, PlayerActor key lane에 메시지를 모아 상태 변경 순서를 고정합니다.
+- 같은 key의 작업을 같은 worker에서 직렬 처리
+- Player / Zone / World / SiegeWar를 메시지 기반 task로 분리
+- Manager는 registry/lifecycle만 lock으로 보호
+- 내부 actor 상태 변경은 Runner를 통해서만 수행
+- DB callback은 `DbCompletionTarget` 기반 post-only 경계로 actor/session executor에 넘김
 
-관련 코드:
+
+
+
+대표 코드:
 
 - `PortfolioServer/Core/include/TaskDispatcher.h`
-- `PortfolioServer/Core/src/TaskDispatcher.cpp`
 - `PortfolioServer/Core/include/KeySerialTaskExecutor.h`
 - `PortfolioServer/Common/include/ManagedActorTaskAccess.h`
-- `PortfolioServer/Common/include/ActorTask.h`
-- `PortfolioServer/Server/WorldServer/include/ZoneTask.h`
-- `PortfolioServer/Server/WorldServer/include/WorldTask.h`
-- `PortfolioServer/Server/WorldServer/include/WorldActorRegistry.h`
+- `PortfolioServer/Server/WorldServer/include/PlayerTaskRunner.h`
+- `PortfolioServer/Server/WorldServer/include/ZoneTaskRunner.h`
+- `PortfolioServer/Server/WorldServer/include/WorldTaskRunner.h`
 
-### 3. World / Zone 서버 구조
+### World / Zone
 
 - FieldZone / InstanceZone 구분
 - Grid 기반 시야 처리
-- player enter/leave, move, attack, HP change, death event 처리
-- Welcome snapshot과 actor enter/leave packet
-- Zone 내부 상태는 zone worker에서만 수정
-- Observer read와 player count 조회는 snapshot/atomic cache로 분리
-- ZoneManager의 zone/instance registry는 `shared_mutex`로 보호
-- 인스턴스 제거는 manager lock 밖에서 후보를 모은 뒤 zone worker에서 empty 여부를 재확인
-- 외부에는 raw zone lookup을 공개하지 않고 `PostToZone`/`SendToZone`/snapshot API만 사용
-- zone 입장은 `Open` 상태에서 발급한 enter permit이 있을 때만 진행하고, 실제 enter 성공 후 player current zone을 확정
-- WorldActor는 WorldId key로 실행되며 GuildManager를 멤버로 소유
-- GuildManager는 길드 registry/index와 내부 SiegeManager를 함께 조정하고 snapshot 복사 조회만 제공
-- Guild는 자체 lock으로 길드장·길드원 상태를 보호하고, 진행 중인 SiegeWar는 별도 actor task에서 상태를 변경
+- player enter/leave, move, attack, HP change, death/respawn event 처리
+- Observer read는 atomic snapshot cache로 분리
+- Zone enter permit과 `Open/Closing` lifecycle로 입장/제거 경합 완화
+- 단일 zone worker 병목을 metrics로 확인하고, 다음 개선 방향을 zone 분할과 tick batching으로 정리
 
-관련 코드:
+### 길드와 공성전
 
-- `PortfolioServer/Server/WorldServer/include/IZone.h`
-- `PortfolioServer/Server/WorldServer/src/IZone.cpp`
-- `PortfolioServer/Server/WorldServer/include/ZoneManager.h`
-- `PortfolioServer/Server/WorldServer/src/ZoneManager.cpp`
-- `PortfolioServer/Server/WorldServer/include/PlayerTaskRunner.h`
-- `PortfolioServer/Server/WorldServer/include/ZoneTaskRunner.h`
-- `PortfolioServer/Server/WorldServer/include/Grid.h`
+- 길드 생성, 가입, 탈퇴, 길드장 이전
+- 공성 선포는 WorldActor 예약, Player actor 개인 골드 결제, WorldActor 확정 순서로 처리
+- 선포 예약 성공 시 참가 길드를 lock하고, 결제 실패/timeout/공성 종료 시 unlock
+- 공성전은 `Scheduled -> Prepare -> InProgress -> Finished` 상태 머신과 `Canceled` 예외 전이를 사용
+- `AttackWindow`와 `OccupationGrace`로 점령 흐름 처리
+- 종료 snapshot 반영 후 reward job/claim을 런타임에 생성
 
-### 4. CMS 성격의 기획 데이터 로딩
-
-- CSV parser 기반 데이터 로딩
-- `StrongId<Tag, Value>`로 도메인 ID 타입 분리
-- 공성전 데이터와 스케줄 데이터 샘플 로딩
-
-관련 코드:
-
-- `PortfolioServer/Common/include/CmsManager.h`
-- `PortfolioServer/Common/src/CmsManager.cpp`
-- `PortfolioServer/Common/data/SiegeWar.csv`
-- `PortfolioServer/Common/data/SiegeSchedule.csv`
-
-### 5. 길드와 공성전 lifecycle
-
-- 길드 생성 시 생성자를 길드장으로 등록하고 가입·탈퇴·길드장 위임을 지원
-- 공성전 참여 길드는 `InProgress` 동안 신규 가입과 해산을 제한
-- 길드장 개인 골드는 Player actor에서 `MemoryTransaction`으로 차감하고, DB command dispatch 이후의 SP 실패는 별도 error tracking으로 분리
-- 선포는 WorldActor의 예약, Player actor의 결제, WorldActor의 확정 순서로 처리
-- SiegeWar actor는 의미 있는 상태 변경 시 revision snapshot을 WorldActor로 전달
-- 종료 snapshot 반영 후 참가 제한을 해제하고 DB·보상 작업 생성을 위한 TODO 지점을 유지
-
-관련 코드:
+대표 코드:
 
 - `PortfolioServer/Server/WorldServer/include/Guild/GuildManager.h`
-- `PortfolioServer/Server/WorldServer/include/Siege/SiegeManager.h`
-- `PortfolioServer/Server/WorldServer/include/Siege/SiegeWarTaskRunner.h`
+- `PortfolioServer/Server/WorldServer/include/Siege/SiegeWar.h`
+- `PortfolioServer/Server/WorldServer/src/Siege/SiegeManager.cpp`
+- `PortfolioServer/Server/WorldServer/src/Reward/SiegeRewardPlanner.cpp`
 
-### 6. 공통 상태 머신 유틸
+## DB 초기화
 
-- 현재 상태, 허용 전이, guard, `onEnter`/`onTick`/`onExit` 처리
-- 선형 phase 흐름은 `AllowSequentialTransitions`, 예외 전이는 `AllowTransition`으로 정의
-- 자체 thread/lock 없이 actor 또는 콘텐츠 객체가 has-a로 소유
-- Tick에서 상태별 진행 로직과 전환 조건을 처리하고, 전이 결과는 호출자가 후속 처리
-- 공성전, 라이브 이벤트 단계 흐름에 재사용 예정
+MySQL에서 아래 SQL을 순서대로 실행합니다.
 
-관련 코드:
+```text
+PortfolioServer/Database/sql/001_schema.sql
+PortfolioServer/Database/sql/002_procedures.sql
+PortfolioServer/Database/sql/003_siege_reward_claim.sql
+```
 
-- `PortfolioServer/Common/include/StateMachine.h`
-
-### 7. 부하 테스트와 관찰성
-
-- TestClient 부하 봇
-- Observer channel로 actor snapshot과 metrics 전송
-- CSV metrics logging
-- Grafana CSV datasource 연동
-- SendOverflow, pending send bytes, packet count, byte count, queue size 기록
-
-자세한 측정 기록:
-
-- `PortfolioServer/measurements.md`
-- `PortfolioServer/docs/live-issue-case.md`
-
----
+현재 코드에 실제로 연결된 영속화 범위는 캐릭터 생성/조회, 골드 저장, 공성 보상 claim 생성 저장입니다. 실제 claim 수령 request와 pending/failed 재처리 정책은 다음 단계로 남겨두고, schema와 재처리 설계는 문서화했습니다.
 
 ## 대표 분석 사례
 
 ### Zone race condition
 
-초기 구조에서는 여러 worker thread가 Zone의 `_players`, `_grid`를 직접 접근하면서 1000봇 부하 시 `unordered_map` iterator invalidation crash가 발생했습니다.
-
-해결 방향:
-
-- 모든 Zone 접근을 `SendToZone(zoneId, msg)` 메시지로 단일화
-- 같은 zone key는 항상 같은 worker에서 처리
-- `_players`, `_grid` 수정은 zone worker에서만 수행
-- Observer read는 atomic snapshot cache로 분리
-- Zone registry/lifecycle은 `ZoneManager`에서 짧은 lock으로 보호
+초기 구조에서는 여러 worker thread가 Zone의 `_actors`, `_grid`를 직접 접근하면서 1000봇 이상 부하에서 iterator invalidation crash가 발생했습니다. 이후 모든 Zone 접근을 `SendToZone(zoneId, msg)`와 `ZoneTaskRunner`로 정리해 zone worker가 authoritative state를 단일 소유하도록 바꿨습니다.
 
 ### SendOverflow와 TCP backpressure
 
-부하 테스트 중 server `SendOverflow`가 발생했지만, 분석 결과 직접 원인은 server send logic보다 client receive 처리 한계였습니다.
+부하 테스트 중 server `SendOverflow`가 발생했지만, 측정 결과 직접 원인은 server send logic보다 client receive 처리량과 TCP backpressure였습니다. client process 분산 후 3000 bot까지 안정화되었고, 4000 bot에서는 CPU가 낮아도 단일 zone worker queue가 폭발해 진짜 server 병목이 드러났습니다.
 
-분석 흐름:
+자세한 측정 narrative는 `PortfolioServer/measurements.md`에 정리되어 있습니다.
 
-- client NetworkIO worker가 packet 처리량을 따라가지 못함
-- client recv buffer와 kernel recv buffer가 밀림
-- TCP window가 줄어 server kernel send buffer가 밀림
-- server `OnSendCompleted`가 늦어져 `_sendBuffer`가 비워지지 않음
-- 다음 `SendPacket`에서 `SendOverflow` 발생
+## 다음 주 마감 기준
 
-이 과정은 `measurements.md`에 측정 조건별로 정리했습니다.
+다음 주까지는 기능을 넓히기보다 제출 가능한 상태로 닫습니다.
 
----
+1. README와 설계 문서 최신화
+2. 공성 reward claim 수령 request와 재처리 범위 결정
+3. 공성 demo log와 부하 측정 PDF에 넣을 Grafana/metrics 캡처 준비
+4. 최종 TODO와 면접 설명 포인트 정리
 
-## 라이브 서버 완성도를 높이기 위한 추가 작업
-
-1개월 완성 목표로 아래 기능을 추가합니다.
-
-### 1. 공성전 서버 상태 머신
-
-- Scheduled / Prepare / InProgress / Finished / Canceled
-- 스케줄 로딩
-- GM 명령 기반 강제 시작/종료
-- 참여자/진영/길드 등록
-- 점령 점수, 킬/데스, 기여도 누적
-- 종료 시 랭킹 계산
-
-문서:
-
-- `PortfolioServer/docs/siege-system.md`
-
-### 2. 보상/상품/DB 흐름
-
-- 공성전 종료 보상 생성
-- reward claim 중복 수령 방지
-- transaction / rollback / idempotency 흐름
-- MySQL schema와 repository interface
-
-문서:
-
-- `PortfolioServer/docs/db-and-reward.md`
-
-### 3. 라이브 이슈 대응 문서
-
-- 공성전 종료 중 서버 재시작
-- 보상 중복 요청
-- 대규모 전투 중 broadcast 폭증
-- packet validation, rate limit, disconnect reason 분석
-
-문서:
-
-- `PortfolioServer/docs/live-issue-case.md`
-
----
-
-## 빌드 구성
-
-개발 환경:
-
-- Windows 10 / 11 x64
-- Visual Studio 2022
-- C++23 (`/std:c++latest`)
-- Release x64 기준 측정
-
-필수 빌드 대상:
-
-- `Core`
-- `Common`
-- `WorldServer`
-- `TestClient`
-
-선택 빌드 대상:
-
-- `Viewer`
-  - Raylib 기반 관찰용 클라이언트입니다.
-  - `raylib.h`와 `raylib.lib`가 필요하므로 기본 솔루션 빌드 대상에서는 제외합니다.
-
----
+세부 마감 계획은 `PortfolioServer/docs/finalization-plan.md`를 봅니다.
 
 ## 문서
 
+- `PortfolioServer/README.md`
 - `PortfolioServer/docs/architecture.md`
 - `PortfolioServer/docs/siege-system.md`
 - `PortfolioServer/docs/db-and-reward.md`
 - `PortfolioServer/docs/live-issue-case.md`
+- `PortfolioServer/docs/finalization-plan.md`
 - `PortfolioServer/measurements.md`
-
----
 
 ## 참고
 
-이 프로젝트는 개인 포트폴리오 및 학습 목적의 프로젝트입니다.
-
-IOCP 네트워크 코어는 학생 시절부터 작성해 온 개인 코드를 현재 지식 수준에 맞게 리팩터링한 것이며, 재직 중인 회사의 소스 코드나 내부 데이터를 포함하지 않습니다.
-
-
-## MySQL 및 단위 테스트 환경
-
-MySQL 연결, SP 초기화, 환경 변수와 GoogleTest 실행 방법은 PortfolioServer/docs/database-and-tests-setup.md에 정리합니다.
+이 프로젝트는 개인 포트폴리오 및 학습 목적의 프로젝트입니다. IOCP 네트워크 코어는 학생 시절부터 작성해 온 개인 코드를 현재 지식 수준에 맞게 리팩터링한 것이며, 재직 중인 회사의 소스 코드나 내부 데이터를 포함하지 않습니다.

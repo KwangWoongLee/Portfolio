@@ -12,7 +12,7 @@ MMORPG C++ 게임 서버 개발자 포트폴리오입니다.
 - Zone 내부 공유 상태를 worker 단일 소유로 제한해 race condition 완화
 - pending send bytes, queue size, disconnect reason, CPU, packet/byte rate 측정
 - MySQL Connector/C++ 기반 캐릭터 생성 및 골드 저장 경계
-- 공성전 상태 머신, 스케줄, 점령 grace, 참가 길드 lock, 선포 비용 결제/환불 흐름
+- 공성전 상태 머신, 스케줄, 점령 grace, 선포 시점 참가 길드 lock, 선포 비용 결제/환불 흐름
 
 ## 프로젝트 구성
 
@@ -20,10 +20,11 @@ MMORPG C++ 게임 서버 개발자 포트폴리오입니다.
 Core                 IOCP, session, stream/packet, task dispatcher, timer, metrics
 Common               packet schema, actor base, state machine, CMS csv loader
 Database             MySQL connection pool, character repository, schema/procedure
+WorldServer/Reward   siege reward planner and claim repository integration
 Server/WorldServer   Player, Zone, Guild, SiegeWar, observer metrics
 Client/TestClient    부하 테스트용 봇 클라이언트
 Client/Viewer        raylib 기반 observer viewer
-Tests/UnitTests      StateMachine, MemoryTransaction, SiegeWar 단위 테스트
+Tests/UnitTests      StateMachine, SiegeWar, SiegeRewardPlanner 단위 테스트
 docs                 아키텍처, 라이브 이슈, DB/보상 설계 문서
 ```
 
@@ -65,6 +66,7 @@ MySQL에서 아래 SQL을 순서대로 실행합니다.
 ```text
 Database/sql/001_schema.sql
 Database/sql/002_procedures.sql
+Database/sql/003_siege_reward_claim.sql
 ```
 
 WorldServer 실행 전 환경 변수:
@@ -115,19 +117,20 @@ $env:PORTFOLIO_SIEGE_DEMO = '1'
 - Zone enter permit, Open/Closing lifecycle
 - observer snapshot cache와 metrics CSV
 - MySQL character load/create, gold update repository
-- MemoryTransaction commit/rollback
+- DbCompletionTarget 기반 DB 완료 라우팅
 - 공성전 상태 머신과 wake-up scheduling
 - 클라이언트 없이 관찰 가능한 공성전 데모 로그
 - 공성전 종료 후 winner reward job/claim 생성 로그
-- 길드 생성/가입/탈퇴/장 이전, 공성 참가 lock
+- 공성 reward claim SQL schema와 repository 저장 연결
+- 길드 생성/가입/탈퇴/장 이전, 선포 공성 참가 lock
 - 공성 선포 비용 결제 요청, timeout, 환불 메시지 흐름
 
-설계 문서 단계:
+다음 구현 단계:
 
-- 공성전 최종 결과 DB persistence
-- reward job/claim DB persistence, tax payout ledger
-- reward_claim DB unique key 기반 중복 보상 방지
-- 장애 후 reward job 재처리
+- reward claim 실제 수령 request와 idempotent response
+- 공성 보상 claim DB 저장
+- reward claim insert/claim SP와 idempotent response
+- 장애 후 미완료 reward job 재처리
 
 이 범위는 [docs/db-and-reward.md](docs/db-and-reward.md)와 [docs/live-issue-case.md](docs/live-issue-case.md)에 별도로 정리했습니다.
 
@@ -137,7 +140,7 @@ $env:PORTFOLIO_SIEGE_DEMO = '1'
 - IOCP completion thread가 game logic을 직접 처리하지 않게 나눈 이유
 - SendOverflow를 server buffer 문제가 아니라 TCP backpressure 관점에서 확인한 과정
 - 단일 zone worker 병목을 queue size와 CPU 사용률로 분리해낸 방법
-- MemoryTransaction이 되돌릴 수 있는 범위와 DB worker dispatch 이후 실패를 분리한 이유
+- actor memory 반영과 DB transaction/completion 경계를 분리한 이유
 - 공성전 state와 보상 지급 state를 같은 lifecycle에 넣지 않는 이유
 
 ## 관련 문서
@@ -147,4 +150,5 @@ $env:PORTFOLIO_SIEGE_DEMO = '1'
 - [docs/siege-system.md](docs/siege-system.md)
 - [docs/db-and-reward.md](docs/db-and-reward.md)
 - [docs/database-and-tests-setup.md](docs/database-and-tests-setup.md)
+- [docs/finalization-plan.md](docs/finalization-plan.md)
 - [measurements.md](measurements.md)
