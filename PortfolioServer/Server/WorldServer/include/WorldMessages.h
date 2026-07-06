@@ -64,6 +64,15 @@ namespace WorldMsg
         SiegeWarSnapshot _snapshot;
     };
 
+    struct SiegeRewardClaimsPersisted final
+    {
+        SiegeWarId _siegeWarId{ INVALID_SIEGE_WAR_ID };
+        size_t _requestedCount{};
+        size_t _persistedCount{};
+        bool _succeeded{};
+        std::string _message;
+    };
+
     struct StartSiegeDemo final
     {
         SiegeWarData _data;

@@ -3,6 +3,7 @@
 #include "Reward/SiegeRewardPlanner.h"
 #include "WorldMessages.h"
 
+class ISiegeRewardClaimRepository;
 class SiegeWarTaskRunner;
 class WorldTaskRunner;
 struct SiegeScheduleData;
@@ -10,7 +11,9 @@ struct SiegeScheduleData;
 class WorldActor final
 {
 public:
-    explicit WorldActor(WorldId worldId);
+    WorldActor(
+        WorldId worldId,
+        std::shared_ptr<ISiegeRewardClaimRepository> siegeRewardClaimRepository);
     ~WorldActor();
 
     WorldActor(WorldActor const&) = delete;
@@ -37,6 +40,7 @@ private:
     void OnMessage(WorldMsg::RegisterSiegeWar const& msg);
     void OnMessage(WorldMsg::SiegeScheduleTriggered const& msg);
     void OnMessage(WorldMsg::SiegeWarSnapshotUpdated const& msg);
+    void OnMessage(WorldMsg::SiegeRewardClaimsPersisted const& msg);
     void OnMessage(WorldMsg::StartSiegeDemo const& msg);
 
     std::shared_ptr<SiegeWar> FindSiegeWarInternal(SiegeWarId siegeWarId) const;
@@ -49,6 +53,7 @@ private:
     WorldId const _worldId;
     GuildManager _guildManager;
     SiegeRewardPlanner _siegeRewardPlanner;
+    std::shared_ptr<ISiegeRewardClaimRepository> _siegeRewardClaimRepository;
     std::unordered_map<SiegeScheduleType, TimerId, SiegeScheduleTypeHash> _siegeScheduleTimerIds;
     std::unordered_map<SiegeWarId, TimerId> _siegeWarWakeUpTimerIds;
     std::unordered_map<SiegeDeclarationId, TimerId> _siegeDeclarationPaymentTimerIds;

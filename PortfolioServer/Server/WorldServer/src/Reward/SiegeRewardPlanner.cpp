@@ -66,6 +66,7 @@ std::optional<SiegeRewardJob> SiegeRewardPlanner::CreateFinishedSiegeJob(
     SiegeRewardJob job{
         snapshot._siegeWarId,
         snapshot._worldId,
+        snapshot._siegeWarType,
         snapshot._winnerGuildId,
         snapshot._endReason,
     };
@@ -97,16 +98,16 @@ std::optional<SiegeRewardJob> SiegeRewardPlanner::CreateFinishedSiegeJob(
             continue;
         }
 
-        auto const claimId = GenerateClaimId();
-        if (claimId == INVALID_REWARD_CLAIM_ID)
+        auto const id = GenerateClaimId();
+        if (id == INVALID_REWARD_CLAIM_ID)
         {
             return std::nullopt;
         }
 
         job._claims.emplace_back(RewardClaim{
-            claimId,
+            id,
             snapshot._siegeWarId,
-            member._actorId,
+            CharacterId{ static_cast<int64_t>(member._actorId) },
             snapshot._winnerGuildId,
             ERewardType::SiegeWinnerGold,
             ERewardClaimState::ReadyToClaim,

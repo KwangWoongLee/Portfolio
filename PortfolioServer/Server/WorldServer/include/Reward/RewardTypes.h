@@ -1,4 +1,5 @@
 #pragma once
+#include "CharacterTypes.h"
 #include "Guild/GuildTypes.h"
 #include "Siege/SiegeTypes.h"
 
@@ -26,9 +27,9 @@ enum class ESiegeRewardJobState : uint8_t
 
 struct RewardClaim final
 {
-    RewardClaimId _claimId{ INVALID_REWARD_CLAIM_ID };
+    RewardClaimId _id{ INVALID_REWARD_CLAIM_ID };
     SiegeWarId _eventId{ INVALID_SIEGE_WAR_ID };
-    ActorId _actorId{ INVALID_ACTOR_ID };
+    CharacterId _characterId{ INVALID_CHARACTER_ID };
     GuildId _guildId{ INVALID_GUILD_ID };
     ERewardType _rewardType{ ERewardType::SiegeWinnerGold };
     ERewardClaimState _state{ ERewardClaimState::ReadyToClaim };
@@ -39,6 +40,7 @@ struct SiegeRewardJob final
 {
     SiegeWarId _siegeWarId{ INVALID_SIEGE_WAR_ID };
     WorldId _worldId{ INVALID_WORLD_ID };
+    SiegeWarType _siegeWarType;
     GuildId _winnerGuildId{ INVALID_GUILD_ID };
     ESiegeWarEndReason _endReason{ ESiegeWarEndReason::None };
     ESiegeRewardJobState _state{ ESiegeRewardJobState::SkippedNoWinner };

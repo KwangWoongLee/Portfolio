@@ -23,6 +23,7 @@ public:
 private:
     friend class WorldActor;
     friend class SiegeWarTaskRunner;
+    friend class GuildManagerTestAccess;
 
     GuildOperationResult CreateGuild(ActorId leaderActorId, std::string name);
     GuildOperationResult JoinGuild(ActorId actorId, GuildId guildId);

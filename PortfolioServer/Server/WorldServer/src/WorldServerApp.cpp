@@ -16,6 +16,7 @@
 #include "DbConfig.h"
 #include "MySqlCharacterRepository.h"
 #include "MySqlConnectionPool.h"
+#include "Reward/MySqlSiegeRewardClaimRepository.h"
 #include <cstdlib>
 #include <filesystem>
 #include <iomanip>
@@ -118,6 +119,7 @@ bool WorldServerApp::Init()
     }
 
     _characterRepository = std::make_shared<MySqlCharacterRepository>(_dbConnectionPool);
+    _siegeRewardClaimRepository = std::make_shared<MySqlSiegeRewardClaimRepository>(_dbConnectionPool);
     if (not PlayerManager::Singleton::GetInstance().Initialize(_characterRepository))
     {
         std::cout << "[WorldServer] Failed to initialize PlayerManager" << std::endl;
@@ -163,7 +165,9 @@ bool WorldServerApp::Init()
         return false;
     }
 
-    if (not WorldActorRegistry::Singleton::GetInstance().Create(DEFAULT_WORLD_ID))
+    if (not WorldActorRegistry::Singleton::GetInstance().Create(
+        DEFAULT_WORLD_ID,
+        _siegeRewardClaimRepository))
     {
         std::cout << "[WorldServer] Failed to create default WorldActor" << std::endl;
         return false;
@@ -196,6 +200,7 @@ void WorldServerApp::Stop()
     WorldActorRegistry::Singleton::GetInstance().Remove(DEFAULT_WORLD_ID);
     _engine->Stop();
     PlayerManager::Singleton::GetInstance().Shutdown();
+    _siegeRewardClaimRepository.reset();
     _characterRepository.reset();
     if (_dbConnectionPool)
     {

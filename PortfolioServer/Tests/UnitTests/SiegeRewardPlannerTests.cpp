@@ -1,4 +1,6 @@
 #include <gtest/gtest.h>
+#include <set>
+#include <tuple>
 #include "Reward/SiegeRewardPlanner.h"
 
 namespace
@@ -35,7 +37,7 @@ namespace
     }
 }
 
-TEST(SiegeRewardPlannerTests, CreatesReadyClaimsForWinnerMembersOnce)
+TEST(SiegeRewardPlannerTests, CreatesReadyClaimsForWinnerCharactersOnce)
 {
     SiegeRewardPlanner planner(DEFAULT_WORLD_ID);
     auto const snapshot = MakeFinishedSnapshot(
@@ -49,14 +51,15 @@ TEST(SiegeRewardPlannerTests, CreatesReadyClaimsForWinnerMembersOnce)
     ASSERT_TRUE(job);
     EXPECT_EQ(ESiegeRewardJobState::ClaimsPrepared, job->_state);
     EXPECT_EQ(snapshot._siegeWarId, job->_siegeWarId);
+    EXPECT_EQ(snapshot._siegeWarType, job->_siegeWarType);
     EXPECT_EQ(GuildId{ 10 }, job->_winnerGuildId);
     ASSERT_EQ(2, job->_claims.size());
 
-    EXPECT_EQ(ActorId{ 100 }, job->_claims[0]._actorId);
-    EXPECT_EQ(ActorId{ 300 }, job->_claims[1]._actorId);
+    EXPECT_EQ(CharacterId{ 100 }, job->_claims[0]._characterId);
+    EXPECT_EQ(CharacterId{ 300 }, job->_claims[1]._characterId);
     for (RewardClaim const& claim : job->_claims)
     {
-        EXPECT_NE(INVALID_REWARD_CLAIM_ID, claim._claimId);
+        EXPECT_NE(INVALID_REWARD_CLAIM_ID, claim._id);
         EXPECT_EQ(snapshot._siegeWarId, claim._eventId);
         EXPECT_EQ(GuildId{ 10 }, claim._guildId);
         EXPECT_EQ(ERewardType::SiegeWinnerGold, claim._rewardType);
@@ -66,6 +69,30 @@ TEST(SiegeRewardPlannerTests, CreatesReadyClaimsForWinnerMembersOnce)
 
     auto duplicate = planner.CreateFinishedSiegeJob(snapshot, guild);
     EXPECT_FALSE(duplicate);
+}
+
+TEST(SiegeRewardPlannerTests, PreparedClaimsMatchDatabaseUniquenessKey)
+{
+    SiegeRewardPlanner planner(DEFAULT_WORLD_ID);
+    auto const snapshot = MakeFinishedSnapshot(
+        SiegeWarId{ 201 },
+        ESiegeWarEndReason::DefenderVictory,
+        GuildId{ 20 });
+    auto const guild = MakeGuildSnapshot(GuildId{ 20 });
+
+    auto job = planner.CreateFinishedSiegeJob(snapshot, guild);
+
+    ASSERT_TRUE(job);
+    std::set<std::tuple<int64_t, int64_t, std::string>> uniqueKeys;
+    for (RewardClaim const& claim : job->_claims)
+    {
+        EXPECT_TRUE(uniqueKeys.emplace(
+            static_cast<int64_t>(claim._eventId),
+            static_cast<int64_t>(claim._characterId),
+            ToString(claim._rewardType)).second);
+        EXPECT_EQ(ERewardClaimState::ReadyToClaim, claim._state);
+    }
+    EXPECT_EQ(job->_claims.size(), uniqueKeys.size());
 }
 
 TEST(SiegeRewardPlannerTests, SkipsClaimsWhenSiegeHasNoWinner)

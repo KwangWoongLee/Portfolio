@@ -1,7 +1,10 @@
 #include "CorePch.h"
 #include "WorldActor.h"
 #include "CmsManager.h"
+#include "DbCompletionTarget.h"
+#include "DbDispatcher.h"
 #include "PlayerPost.h"
+#include "Reward/SiegeRewardClaimRepository.h"
 #include "Siege/SiegeWarTaskRunner.h"
 #include "TimerManager.h"
 #include "WorldPost.h"
@@ -30,6 +33,61 @@ namespace
         return delay;
     }
     auto constexpr SIEGE_DECLARATION_PAYMENT_TIMEOUT = std::chrono::seconds(5);
+
+    class PersistSiegeRewardClaimsCommand final
+        : public IDbCommand
+    {
+    public:
+        PersistSiegeRewardClaimsCommand(
+            DbCompletionTarget completionTarget,
+            std::shared_ptr<ISiegeRewardClaimRepository> repository,
+            SiegeRewardJob job)
+            : _completionTarget(completionTarget)
+            , _repository(std::move(repository))
+            , _job(std::move(job))
+        {
+        }
+
+        EDbCommandResult Execute() override
+        {
+            if (not _repository)
+            {
+                _result = SiegeRewardClaimRepositoryResult{
+                    ESiegeRewardClaimRepositoryError::InvalidArgument,
+                    "siege reward claim repository unavailable",
+                    _job._claims.size(),
+                };
+                return EDbCommandResult::Failed;
+            }
+
+            _result = _repository->PrepareClaims(_job);
+            return _result.Succeeded() ? EDbCommandResult::Succeeded : EDbCommandResult::Failed;
+        }
+
+        void OnCompleted(EDbCommandResult const result) override
+        {
+            (void)result;
+            if (_completionTarget._type != EDbCompletionTargetType::Actor ||
+                not _completionTarget.IsValid())
+            {
+                return;
+            }
+
+            SendToWorld(WorldId{ _completionTarget._id }, WorldMsg::SiegeRewardClaimsPersisted{
+                _job._siegeWarId,
+                _result._requestedCount,
+                _result._persistedCount,
+                _result.Succeeded(),
+                std::move(_result._message),
+            });
+        }
+
+    private:
+        DbCompletionTarget _completionTarget;
+        std::shared_ptr<ISiegeRewardClaimRepository> _repository;
+        SiegeRewardJob _job;
+        SiegeRewardClaimRepositoryResult _result;
+    };
 
     std::optional<std::chrono::milliseconds> GetNextScheduleDelay(
         SiegeScheduleData const& schedule)
@@ -79,10 +137,13 @@ namespace
     }
 }
 
-WorldActor::WorldActor(WorldId const worldId)
+WorldActor::WorldActor(
+    WorldId const worldId,
+    std::shared_ptr<ISiegeRewardClaimRepository> siegeRewardClaimRepository)
     : _worldId(worldId)
     , _guildManager(worldId)
     , _siegeRewardPlanner(worldId)
+    , _siegeRewardClaimRepository(std::move(siegeRewardClaimRepository))
 {
     for (auto const* schedule : CmsManager::Singleton::GetConstInstance().GetAllSiegeSchedules())
     {
@@ -291,6 +352,19 @@ void WorldActor::OnMessage(WorldMsg::SiegeWarSnapshotUpdated const& msg)
     CreateSiegeRewardJob(msg._snapshot);
 }
 
+void WorldActor::OnMessage(WorldMsg::SiegeRewardClaimsPersisted const& msg)
+{
+    std::cout << "[SiegeRewardClaimRepository] siegeWarId=" << msg._siegeWarId
+        << " result=" << (msg._succeeded ? "Succeeded" : "Failed")
+        << " requested=" << msg._requestedCount
+        << " persisted=" << msg._persistedCount;
+    if (not msg._message.empty())
+    {
+        std::cout << " message=" << msg._message;
+    }
+    std::cout << std::endl;
+}
+
 void WorldActor::OnMessage(WorldMsg::StartSiegeDemo const& msg)
 {
     auto redGuildResult = _guildManager.CreateGuild(
@@ -426,14 +500,38 @@ void WorldActor::CreateSiegeRewardJob(SiegeWarSnapshot const& snapshot)
 
     for (RewardClaim const& claim : job->_claims)
     {
-        std::cout << "[RewardClaim] claimId=" << claim._claimId
+        std::cout << "[RewardClaim] id=" << claim._id
             << " eventId=" << claim._eventId
-            << " actor=" << claim._actorId
+            << " character=" << claim._characterId
             << " guild=" << claim._guildId
             << " type=" << ToString(claim._rewardType)
             << " state=" << ToString(claim._state)
             << " gold=" << claim._goldAmount
             << std::endl;
+    }
+
+    if (job->_claims.empty())
+    {
+        return;
+    }
+
+    if (not _siegeRewardClaimRepository)
+    {
+        std::cout << "[SiegeRewardClaimRepository] unavailable siegeWarId="
+            << job->_siegeWarId << std::endl;
+        return;
+    }
+
+    auto command = std::make_unique<PersistSiegeRewardClaimsCommand>(
+        DbCompletionTarget::Actor(static_cast<int64_t>(_worldId)),
+        _siegeRewardClaimRepository,
+        std::move(*job));
+    if (not DbDispatcher::Singleton::GetInstance().Enqueue(
+        static_cast<int64_t>(snapshot._siegeWarId),
+        std::move(command)))
+    {
+        std::cout << "[SiegeRewardClaimRepository] enqueue failed siegeWarId="
+            << snapshot._siegeWarId << std::endl;
     }
 }
 

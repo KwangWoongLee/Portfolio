@@ -4,6 +4,7 @@
 
 class MySqlConnectionPool;
 class ICharacterRepository;
+class ISiegeRewardClaimRepository;
 
 class WorldServerApp final
     : public IApp
@@ -24,4 +25,5 @@ private:
     std::unique_ptr<ServerEngine> _engine;
     std::shared_ptr<MySqlConnectionPool> _dbConnectionPool;
     std::shared_ptr<ICharacterRepository> _characterRepository;
+    std::shared_ptr<ISiegeRewardClaimRepository> _siegeRewardClaimRepository;
 };

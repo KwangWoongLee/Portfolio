@@ -6,13 +6,31 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="MemoryTransactionTests.cpp">
+    <ClCompile Include="DbCompletionTargetTests.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="GuildManagerSiegeLockTests.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SiegeRewardPlannerTests.cpp">
       <Filter>Tests</Filter>
     </ClCompile>
     <ClCompile Include="SiegeWarTests.cpp">
       <Filter>Tests</Filter>
     </ClCompile>
     <ClCompile Include="StateMachineTests.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Server\WorldServer\src\Guild\Guild.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Server\WorldServer\src\Guild\GuildManager.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Server\WorldServer\src\Reward\SiegeRewardPlanner.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Server\WorldServer\src\Siege\SiegeManager.cpp">
       <Filter>Tests</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Server\WorldServer\src\Siege\SiegeWar.cpp">

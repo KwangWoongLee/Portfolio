@@ -21,4 +21,10 @@
     <ClCompile Include="src\MySqlConnection.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\MySqlConnectionPool.cpp"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="sql\000_reset_schema.sql" />
+    <None Include="sql\001_schema.sql" />
+    <None Include="sql\002_procedures.sql" />
+    <None Include="sql\003_siege_reward_claim.sql" />
+  </ItemGroup>
 </Project>

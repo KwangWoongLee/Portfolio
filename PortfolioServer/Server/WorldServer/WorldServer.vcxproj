@@ -106,7 +106,9 @@ xcopy /Y /I &quot;$(SolutionDir)Common\data\*.csv&quot; &quot;$(OutDir)data&quot
     <ClInclude Include="include\Guild\Guild.h" />
     <ClInclude Include="include\Guild\GuildManager.h" />
     <ClInclude Include="include\Guild\GuildTypes.h" />
+    <ClInclude Include="include\Reward\MySqlSiegeRewardClaimRepository.h" />
     <ClInclude Include="include\Reward\RewardTypes.h" />
+    <ClInclude Include="include\Reward\SiegeRewardClaimRepository.h" />
     <ClInclude Include="include\Reward\SiegeRewardPlanner.h" />
     <ClInclude Include="include\Siege\SiegeManager.h" />
     <ClInclude Include="include\Siege\SiegeTypes.h" />
@@ -141,6 +143,7 @@ xcopy /Y /I &quot;$(SolutionDir)Common\data\*.csv&quot; &quot;$(OutDir)data&quot
     <ClCompile Include="src\PlayerManager.cpp" />
     <ClCompile Include="src\Guild\Guild.cpp" />
     <ClCompile Include="src\Guild\GuildManager.cpp" />
+    <ClCompile Include="src\Reward\MySqlSiegeRewardClaimRepository.cpp" />
     <ClCompile Include="src\Reward\SiegeRewardPlanner.cpp" />
     <ClCompile Include="src\Siege\SiegeManager.cpp" />
     <ClCompile Include="src\Siege\SiegeWar.cpp" />

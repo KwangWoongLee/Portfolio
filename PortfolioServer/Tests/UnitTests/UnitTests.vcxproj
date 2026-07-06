@@ -75,11 +75,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="MemoryTransactionTests.cpp" />
+    <ClCompile Include="DbCompletionTargetTests.cpp" />
+    <ClCompile Include="GuildManagerSiegeLockTests.cpp" />
     <ClCompile Include="SiegeRewardPlannerTests.cpp" />
     <ClCompile Include="SiegeWarTests.cpp" />
     <ClCompile Include="StateMachineTests.cpp" />
+    <ClCompile Include="..\..\Server\WorldServer\src\Guild\Guild.cpp" />
+    <ClCompile Include="..\..\Server\WorldServer\src\Guild\GuildManager.cpp" />
     <ClCompile Include="..\..\Server\WorldServer\src\Reward\SiegeRewardPlanner.cpp" />
+    <ClCompile Include="..\..\Server\WorldServer\src\Siege\SiegeManager.cpp" />
     <ClCompile Include="..\..\Server\WorldServer\src\Siege\SiegeWar.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -1,7 +1,9 @@
 #include "CorePch.h"
 #include "WorldActorRegistry.h"
 
-bool WorldActorRegistry::Create(WorldId const worldId)
+bool WorldActorRegistry::Create(
+    WorldId const worldId,
+    std::shared_ptr<ISiegeRewardClaimRepository> siegeRewardClaimRepository)
 {
     if (worldId == INVALID_WORLD_ID)
     {
@@ -14,7 +16,9 @@ bool WorldActorRegistry::Create(WorldId const worldId)
         return false;
     }
 
-    _worldActors.emplace(worldId, std::make_shared<WorldActor>(worldId));
+    _worldActors.emplace(worldId, std::make_shared<WorldActor>(
+        worldId,
+        std::move(siegeRewardClaimRepository)));
     return true;
 }
 
