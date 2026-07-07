@@ -54,3 +54,20 @@ size_t TaskDispatcher::GetTotalQueueSize() const
     }
     return total;
 }
+
+TaskDispatcherQueueSnapshot TaskDispatcher::GetQueueSnapshot() const
+{
+    TaskDispatcherQueueSnapshot snapshot;
+    for (size_t i = 0; i < _executors.size(); ++i)
+    {
+        auto const& exec = _executors[i];
+        if (not exec)
+        {
+            continue;
+        }
+
+        snapshot._queueSizeByTaskType[i] = exec->GetTotalQueueSize();
+        exec->CollectQueueSizes(snapshot._workerQueueSizesByTaskType[i]);
+    }
+    return snapshot;
+}

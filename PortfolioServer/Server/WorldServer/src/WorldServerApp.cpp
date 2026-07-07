@@ -28,6 +28,8 @@ auto constexpr OBSERVER_PUSH_INTERVAL = std::chrono::milliseconds(100);
 namespace
 {
     auto const METRICS_CSV_PATH = "metrics/server_metrics.csv";
+    auto constexpr LOAD_TEST_FIELD_ZONE_IDS = std::array<ZoneId, 4>{ 1, 2, 3, 4 };
+    auto constexpr HUNTING_FIELD_ZONE_ID = 5;
 
     std::string BuildCmsDataPath()
     {
@@ -240,8 +242,12 @@ void WorldServerApp::InitZones()
 {
     auto& zoneMgr = ZoneManager::Singleton::GetInstance();
 
-    zoneMgr.CreateField(1);  // 마을
-    zoneMgr.CreateField(2);  // 사냥터
+    for (auto const zoneId : LOAD_TEST_FIELD_ZONE_IDS)
+    {
+        zoneMgr.CreateField(zoneId);  // load-test field partition
+    }
+    zoneMgr.CreateField(HUNTING_FIELD_ZONE_ID);  // 사냥터
 
-    std::cout << "[WorldServer] Zones initialized" << std::endl;
+    std::cout << "[WorldServer] Zones initialized (load-test partitions="
+        << LOAD_TEST_FIELD_ZONE_IDS.size() << ")" << std::endl;
 }

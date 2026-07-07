@@ -83,6 +83,16 @@ size_t KeySerialTaskExecutor::GetTotalQueueSize() const
     return total;
 }
 
+void KeySerialTaskExecutor::CollectQueueSizes(std::vector<size_t>& outQueueSizes) const
+{
+    outQueueSizes.clear();
+    outQueueSizes.reserve(_workers.size());
+    for (auto const& w : _workers)
+    {
+        outQueueSizes.emplace_back(w->_queue.ApproxSize());
+    }
+}
+
 void KeySerialTaskExecutor::ThreadLoop(size_t const index) const
 {
     auto const& ctx = _workers[index];

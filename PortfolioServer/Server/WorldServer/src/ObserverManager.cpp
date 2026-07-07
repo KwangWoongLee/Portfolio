@@ -52,6 +52,8 @@ void ObserverManager::PushSnapshot()
     _lastSendByteCount = currentSendByteCount;
     _lastProcessCpuTime100ns = currentProcessCpuTime100ns;
 
+    auto const queueSnapshot = TaskDispatcher::Singleton::GetConstInstance().GetQueueSnapshot();
+
     W2OSnapshot pkt;
     pkt._ccu = static_cast<uint32_t>(PlayerManager::Singleton::GetConstInstance().GetCount());
     pkt._sendPps = sendPps;
@@ -59,9 +61,7 @@ void ObserverManager::PushSnapshot()
     pkt._sendBytesPerSecond = sendBytesPerSecond;
     pkt._recvBytesPerSecond = recvBytesPerSecond;
     pkt._cpuPercent = cpuPercent;
-    pkt._queueLen = static_cast<uint32_t>(TaskDispatcher::Singleton::GetConstInstance().GetTotalQueueSize());
-
-    ZoneManager::Singleton::GetConstInstance().CollectAllSnapshots(pkt._actors);
+    pkt._queueLen = static_cast<uint32_t>(queueSnapshot.GetTotalQueueSize());
 
     auto const sinceLastCsvLogMs = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - _lastCsvLogTime);
     if (CSV_LOG_INTERVAL <= sinceLastCsvLogMs)
@@ -74,13 +74,31 @@ void ObserverManager::PushSnapshot()
         sample._sendBytesPerSecond = pkt._sendBytesPerSecond;
         sample._recvBytesPerSecond = pkt._recvBytesPerSecond;
         sample._cpuPercent = pkt._cpuPercent;
-        sample._taskQueueSize = pkt._queueLen;
+        sample._taskQueueSize = queueSnapshot.GetTotalQueueSize();
+        sample._taskQueueSizeByType = queueSnapshot._queueSizeByTaskType;
+        sample._taskWorkerQueueSizesByType = queueSnapshot._workerQueueSizesByTaskType;
+        sample._playerMoveRequestCount = Metrics::g_playerMoveRequestCount.load(std::memory_order_relaxed);
+        sample._playerAttackRequestCount = Metrics::g_playerAttackRequestCount.load(std::memory_order_relaxed);
+        sample._playerAttackedCount = Metrics::g_playerAttackedCount.load(std::memory_order_relaxed);
+        sample._zoneActorMovedCount = Metrics::g_zoneActorMovedCount.load(std::memory_order_relaxed);
+        sample._zonePlayerEnteredCount = Metrics::g_zonePlayerEnteredCount.load(std::memory_order_relaxed);
+        sample._zoneHpChangedCount = Metrics::g_zoneHpChangedCount.load(std::memory_order_relaxed);
+        sample._zoneActorDiedCount = Metrics::g_zoneActorDiedCount.load(std::memory_order_relaxed);
+        sample._zoneMoveSightDiffCount = Metrics::g_zoneMoveSightDiffCount.load(std::memory_order_relaxed);
+        sample._zoneMoveSightEnteredCount = Metrics::g_zoneMoveSightEnteredCount.load(std::memory_order_relaxed);
+        sample._zoneMoveSightLeftCount = Metrics::g_zoneMoveSightLeftCount.load(std::memory_order_relaxed);
+        sample._zoneBroadcastInSightCount = Metrics::g_zoneBroadcastInSightCount.load(std::memory_order_relaxed);
+        sample._zoneBroadcastRecipientCount = Metrics::g_zoneBroadcastRecipientCount.load(std::memory_order_relaxed);
+        sample._gridNearbyQueryCount = Metrics::g_gridNearbyQueryCount.load(std::memory_order_relaxed);
+        sample._gridNearbyResultCount = Metrics::g_gridNearbyResultCount.load(std::memory_order_relaxed);
         sample._pendingSendBytesTotal = Metrics::g_pendingSendBytesTotal.load(std::memory_order_relaxed);
         sample._sendOverflowCount = Metrics::g_sendOverflowCount.load(std::memory_order_relaxed);
         MetricsLogger::Singleton::GetInstance().Enqueue(sample);
 
         _lastCsvLogTime = currentTime;
     }
+
+    ZoneManager::Singleton::GetConstInstance().CollectAllSnapshots(pkt._actors);
 
     std::shared_lock lock(_mutex);
     for (auto const& [sessionId, weakSession] : _observers)

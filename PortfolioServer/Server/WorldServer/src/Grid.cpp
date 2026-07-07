@@ -1,5 +1,6 @@
 #include "CorePch.h"
 #include "Grid.h"
+#include "Metrics.h"
 
 Grid::CellIndex Grid::GetCellIndex(Position const& pos) const
 {
@@ -46,6 +47,7 @@ void Grid::Move(ActorId const actorId, Position const& oldPos, Position const& n
 
 void Grid::GetNearbyActorIds(Position const& center, std::vector<ActorId>& outActorIds) const
 {
+    auto const initialResultCount = outActorIds.size();
     auto const centerIdx = GetCellIndex(center);
 
     for (int32_t dx = -1; dx <= 1; ++dx)
@@ -63,6 +65,8 @@ void Grid::GetNearbyActorIds(Position const& center, std::vector<ActorId>& outAc
             }
         }
     }
+
+    Metrics::OnGridNearbyQuery(outActorIds.size() - initialResultCount);
 }
 
 void Grid::GetSightDiff(

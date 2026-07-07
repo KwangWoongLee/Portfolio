@@ -9,6 +9,21 @@
 #include "PacketId.h"
 #include "WorldPackets.h"
 
+namespace
+{
+    auto constexpr LOAD_TEST_FIELD_ZONE_IDS = std::array<ZoneId, 4>{ 1, 2, 3, 4 };
+    std::atomic<uint64_t> g_nextLoadTestZoneIndex{ 0 };
+
+    ZoneId SelectInitialFieldZoneForLoadTest()
+    {
+        auto const index = static_cast<size_t>(
+            g_nextLoadTestZoneIndex.fetch_add(1, std::memory_order_relaxed)
+            % LOAD_TEST_FIELD_ZONE_IDS.size());
+
+        return LOAD_TEST_FIELD_ZONE_IDS[index];
+    }
+}
+
 void ClientSession::HandlePacket(uint16_t const packetId, void const* const payload, uint32_t const size)
 {
     auto const actorId = GetActorId();
@@ -91,8 +106,7 @@ void ClientSession::OnConnected()
             std::cout << "[ClientSession:" << self->GetSessionId()
                 << "] Connected (actor=" << actorId << ")" << std::endl;
 
-            // RequestMovePlayer reserves enter permission, then Zone enter sets Player current zone.
-            ZoneManager::Singleton::GetInstance().RequestMovePlayer(actorId, 1);
+            ZoneManager::Singleton::GetInstance().RequestMovePlayer(actorId, SelectInitialFieldZoneForLoadTest());
         });
 
     if (not enqueued)

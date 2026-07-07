@@ -2,6 +2,7 @@
 #include "IZone.h"
 #include "IOCPSession.h"
 #include "WorldPackets.h"
+#include "Metrics.h"
 
 namespace
 {
@@ -32,6 +33,7 @@ bool IZone::Enter(ZoneMsg::PlayerEntered const& msg)
     state._hp = msg._hp;
 
     _actors.emplace(actorId, std::move(state));
+    Metrics::OnZonePlayerEntered();
     _grid.Add(actorId, msg._position);
     _cachedActorCount.store(_actors.size(), std::memory_order_relaxed);
 
@@ -136,6 +138,7 @@ void IZone::Leave(ActorId const actorId)
 
 void IZone::OnMessage(ZoneMsg::ActorMoved const& msg)
 {
+    Metrics::OnZoneActorMoved();
     OnActorMove(msg._actorId, msg._oldPosition, msg._newPosition);
 
     W2CMoveBroadcast packet;
@@ -180,6 +183,7 @@ void IZone::OnMessage(ZoneMsg::BroadcastInSightRequest const& msg)
 
 void IZone::OnMessage(ZoneMsg::HpChanged const& msg)
 {
+    Metrics::OnZoneHpChanged();
     auto const actor = FindActor(msg._actorId);
     auto center = msg._center;
     if (actor)
@@ -196,6 +200,7 @@ void IZone::OnMessage(ZoneMsg::HpChanged const& msg)
 
 void IZone::OnMessage(ZoneMsg::ActorDied const& msg)
 {
+    Metrics::OnZoneActorDied();
     auto const actor = FindActor(msg._actorId);
     auto center = msg._center;
     if (actor)
@@ -226,6 +231,7 @@ void IZone::OnActorMove(ActorId const actorId, Position const& oldPos, Position 
     std::vector<ActorId> enteredIds;
     std::vector<ActorId> leftIds;
     _grid.GetSightDiff(newPos, prevPos, enteredIds, leftIds);
+    Metrics::OnZoneMoveSightDiff(enteredIds.size(), leftIds.size());
 
     auto const selfSession = self->_session.lock();
     auto const selfEnterPkt = MakeEnterPacket(actorId, self->_position, self->_hp);
@@ -304,6 +310,7 @@ void IZone::BroadcastInSight(Position const& center, Packet const& packet, Actor
     std::vector<ActorId> nearbyIds;
     _grid.GetNearbyActorIds(center, nearbyIds);
 
+    size_t recipientCount{ 0 };
     for (auto const actorId : nearbyIds)
     {
         if (excludeActorId == actorId)
@@ -321,8 +328,11 @@ void IZone::BroadcastInSight(Position const& center, Packet const& packet, Actor
         {
             session->SendPacket(packet);
             session->FlushPacketStream();
+            ++recipientCount;
         }
     }
+
+    Metrics::OnZoneBroadcastInSight(recipientCount);
 }
 
 IZone::ZoneActorState* IZone::FindActor(ActorId const actorId)

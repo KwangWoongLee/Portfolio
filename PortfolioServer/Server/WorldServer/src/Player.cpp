@@ -3,6 +3,7 @@
 #include "PlayerPost.h"
 #include "DbDispatcher.h"
 #include "TimerManager.h"
+#include "Metrics.h"
 #include "WorldMessages.h"
 #include "WorldPost.h"
 #include "ZoneManager.h"
@@ -56,12 +57,14 @@ bool EnqueueGoldUpdate(
 
 void Player::OnPacket(uint16_t const packetId, std::vector<uint8_t> const& payload)
 {
-    std::cout << "[Player:" << GetActorId() << "] OnPacket id=" << packetId
-        << " size=" << payload.size() << std::endl;
+    (void)packetId;
+    (void)payload;
 }
 
 void Player::OnMessage(PlayerMsg::MoveRequest const& msg)
 {
+    Metrics::OnPlayerMoveRequest();
+
     if (IsDead())
     {
         return;
@@ -80,6 +83,8 @@ void Player::OnMessage(PlayerMsg::MoveRequest const& msg)
 
 void Player::OnMessage(PlayerMsg::AttackRequest const& msg)
 {
+    Metrics::OnPlayerAttackRequest();
+
     if (IsDead())
     {
         return;
@@ -90,6 +95,8 @@ void Player::OnMessage(PlayerMsg::AttackRequest const& msg)
 
 void Player::OnMessage(PlayerMsg::Attacked const& msg)
 {
+    Metrics::OnPlayerAttacked();
+
     if (IsDead())
     {
         return;

@@ -50,7 +50,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Core\include;$(SolutionDir)Common\include;$(SolutionDir)Database\include;$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Core\include;$(SolutionDir)Common\include;$(SolutionDir)Database\include;$(ProjectDir)include;$(MySqlConCppRoot)\include;$(MySqlConCppRoot)\include\jdbc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -74,7 +74,7 @@ xcopy /Y /I &quot;$(SolutionDir)Common\data\*.csv&quot; &quot;$(OutDir)data&quot
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)Core\include;$(SolutionDir)Common\include;$(SolutionDir)Database\include;$(ProjectDir)include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Core\include;$(SolutionDir)Common\include;$(SolutionDir)Database\include;$(ProjectDir)include;$(MySqlConCppRoot)\include;$(MySqlConCppRoot)\include\jdbc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

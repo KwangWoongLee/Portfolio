@@ -15,6 +15,7 @@ public:
     void Shutdown();
 
     size_t GetTotalQueueSize() const;
+    void CollectQueueSizes(std::vector<size_t>& outQueueSizes) const;
 
 private:
     void ThreadLoop(size_t const index) const;
