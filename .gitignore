@@ -23,3 +23,6 @@ vcpkg_installed/
 metrics/
 
 PortfolioServer/packages/
+PortfolioServer/tmp/
+PortfolioServer/local/
+PortfolioServer/logs/
